@@ -17,7 +17,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 # --- LÓGICA DEL BOT DE TELEGRAM ---
-TOKEN = "TU_TOKEN_AQUÍ"
+TOKEN = "8283445971:AAFx7r0rbHyLUt9YS46cZL2sghKAzZ4wFk0"
 
 async def descargar_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
