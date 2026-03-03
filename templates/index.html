@@ -2,110 +2,105 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Infinity Bot Panel</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Core Bot Terminal</title>
     <style>
-        body { background: #0a0a0a; color: #00ff00; font-family: 'Consolas', monospace; padding: 20px; }
-        .container { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
-        .box { background: #151515; border: 1px solid #00ff00; padding: 20px; border-radius: 8px; }
-        input, select { width: 100%; padding: 10px; margin: 10px 0; background: #000; border: 1px solid #00ff00; color: #00ff00; box-sizing: border-box; }
-        .btn-start { background: #00ff00; color: #000; border: none; width: 100%; padding: 15px; cursor: pointer; font-weight: bold; }
-        .btn-stop { background: #ff0000; color: #fff; border: none; width: 100%; padding: 15px; cursor: pointer; margin-top: 10px; }
-        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .s-item { background: #222; padding: 10px; text-align: center; border-radius: 4px; font-size: 0.9em; }
-        .s-item span { display: block; font-size: 1.4em; font-weight: bold; color: white; }
+        :root { --neon: #00ff88; --bg: #050505; --red: #ff3e3e; }
+        * { box-sizing: border-box; transition: 0.3s; }
+        body { 
+            background: var(--bg); color: var(--neon); 
+            font-family: 'Courier New', monospace; margin: 0; 
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+        }
+        .container { 
+            width: 90%; max-width: 500px; background: #0f0f0f; 
+            padding: 30px; border: 1px solid var(--neon);
+            border-radius: 15px; box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+        }
+        h1 { font-size: 1.5rem; text-align: center; text-transform: uppercase; letter-spacing: 3px; }
+        .status-bar { 
+            background: #000; padding: 10px; border-radius: 5px; 
+            margin-bottom: 20px; font-size: 0.8rem; border-left: 3px solid var(--neon);
+        }
+        input { 
+            width: 100%; background: #000; border: 1px solid #333; 
+            color: #fff; padding: 12px; margin: 10px 0; border-radius: 5px; outline: none;
+        }
+        input:focus { border-color: var(--neon); box-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        button { 
+            padding: 15px; border: none; border-radius: 5px; 
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
+        }
+        .btn-start { background: var(--neon); color: #000; }
+        .btn-stop { background: var(--red); color: #fff; }
+        button:active { transform: scale(0.95); }
+        .stats-display { 
+            margin-top: 25px; display: flex; justify-content: space-around; 
+            border-top: 1px solid #222; padding-top: 20px;
+        }
+        .stat-box { text-align: center; }
+        .stat-box small { display: block; color: #555; font-size: 0.7rem; }
+        .stat-box span { font-size: 1.2rem; font-weight: bold; }
+        
+        /* Mobile adjustment */
+        @media (max-width: 400px) {
+            h1 { font-size: 1.2rem; }
+            .container { padding: 20px; }
+        }
     </style>
 </head>
 <body>
-    <h2>SYSTEM BOT HOST - MULTITHREADING</h2>
     <div class="container">
-        <div class="box">
-            <label>TARGET (IP o URL)</label>
-            <input type="text" id="target" placeholder="127.0.0.1">
-            <label>PUERTO</label>
-            <input type="number" id="port" value="80">
-            <label>PROTOCOLO</label>
-            <select id="type">
-                <option value="TCP">TCP (Loop MB)</option>
-                <option value="UDP">UDP (Flood MB)</option>
-                <option value="HTTP">HTTP (Post MB)</option>
-            </select>
-            <label>RANGO MB (Min/Max)</label>
-            <div style="display:flex; gap:10px;">
-                <input type="number" id="mb_min" value="1">
-                <input type="number" id="mb_max" value="5">
-            </div>
-            <label>CANTIDAD DE BOTS</label>
-            <input type="number" id="threads" value="10">
-            
-            <button class="btn-start" onclick="control('start')">INICIAR LOOP INFINITO</button>
-            <button class="btn-stop" onclick="control('stop')">DETENER TODO</button>
-
-            <div class="stats">
-                <div class="s-item">MB TOTALES<span id="st_total">0</span></div>
-                <div class="s-item">VELOCIDAD<span id="st_speed">0 MB/s</span></div>
-                <div class="s-item">HILOS<span id="st_hilos">0</span></div>
-                <div class="s-item">PING<span id="st_lat">0ms</span></div>
-            </div>
+        <h1>Core Hoster v2</h1>
+        <div class="status-bar">SYSTEM STATUS: <span id="status">OFFLINE</span></div>
+        
+        <label>TARGET IP / URL</label>
+        <input type="text" id="target" placeholder="ej: 192.168.1.1 o https://web.com">
+        
+        <label>CANTIDAD DE BOTS</label>
+        <input type="number" id="threads" placeholder="Número de hilos" value="10">
+        
+        <div class="grid">
+            <button class="btn-start" onclick="control('start')">Iniciar</button>
+            <button class="btn-stop" onclick="control('stop')">Detener</button>
         </div>
-        <div class="box">
-            <canvas id="netChart"></canvas>
+
+        <div class="stats-display">
+            <div class="stat-box">
+                <span><span id="st_total">0</span>MB</span>
+                <small>ENVIADO</small>
+            </div>
+            <div class="stat-box">
+                <span id="st_hilos">0</span>
+                <small>BOTS ACTIVOS</small>
+            </div>
         </div>
     </div>
 
     <script>
-        let chart;
-        const ctx = document.getElementById('netChart').getContext('2d');
-
         async function control(action) {
-            const body = {
-                action,
-                target: document.getElementById('target').value,
-                port: document.getElementById('port').value,
-                type: document.getElementById('type').value,
-                threads: document.getElementById('threads').value,
-                mb_min: document.getElementById('mb_min').value,
-                mb_max: document.getElementById('mb_max').value
-            };
-            await fetch('/api/control', {
+            const res = await fetch('/api/control', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(body)
-            });
-        }
-
-        function setupChart() {
-            chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(30).fill(''),
-                    datasets: [{
-                        label: 'Tráfico MB/s',
-                        data: Array(30).fill(0),
-                        borderColor: '#00ff00',
-                        backgroundColor: 'rgba(0, 255, 0, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: { animation: false, scales: { y: { beginAtZero: true } } }
+                body: JSON.stringify({
+                    action: action,
+                    target: document.getElementById('target').value,
+                    threads: document.getElementById('threads').value
+                })
             });
         }
 
         setInterval(async () => {
             const r = await fetch('/api/stats');
             const d = await r.json();
-            document.getElementById('st_total').innerText = d.total_enviado_mb.toFixed(1);
-            document.getElementById('st_speed').innerText = d.velocidad_mbs + " MB/s";
-            document.getElementById('st_hilos').innerText = d.hilos_vivos;
-            document.getElementById('st_lat').innerText = d.latencia;
-
-            chart.data.datasets[0].data.push(d.velocidad_mbs);
-            chart.data.datasets[0].data.shift();
-            chart.update();
+            document.getElementById('st_total').innerText = d.total_mb;
+            document.getElementById('st_hilos').innerText = d.hilos;
+            document.getElementById('status').innerText = d.status;
+            
+            const statusNode = document.getElementById('status');
+            statusNode.style.color = d.status === 'ATTACKING' ? '#00ff88' : '#ff3e3e';
         }, 1000);
-
-        setupChart();
     </script>
 </body>
-                  </html>
+</html>
