@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Infinity Bot Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #0a0a0a; color: #00ff00; font-family: 'Consolas', monospace; padding: 20px; }
+        .container { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        .box { background: #151515; border: 1px solid #00ff00; padding: 20px; border-radius: 8px; }
+        input, select { width: 100%; padding: 10px; margin: 10px 0; background: #000; border: 1px solid #00ff00; color: #00ff00; box-sizing: border-box; }
+        .btn-start { background: #00ff00; color: #000; border: none; width: 100%; padding: 15px; cursor: pointer; font-weight: bold; }
+        .btn-stop { background: #ff0000; color: #fff; border: none; width: 100%; padding: 15px; cursor: pointer; margin-top: 10px; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .s-item { background: #222; padding: 10px; text-align: center; border-radius: 4px; font-size: 0.9em; }
+        .s-item span { display: block; font-size: 1.4em; font-weight: bold; color: white; }
+    </style>
+</head>
+<body>
+    <h2>SYSTEM BOT HOST - MULTITHREADING</h2>
+    <div class="container">
+        <div class="box">
+            <label>TARGET (IP o URL)</label>
+            <input type="text" id="target" placeholder="127.0.0.1">
+            <label>PUERTO</label>
+            <input type="number" id="port" value="80">
+            <label>PROTOCOLO</label>
+            <select id="type">
+                <option value="TCP">TCP (Loop MB)</option>
+                <option value="UDP">UDP (Flood MB)</option>
+                <option value="HTTP">HTTP (Post MB)</option>
+            </select>
+            <label>RANGO MB (Min/Max)</label>
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="mb_min" value="1">
+                <input type="number" id="mb_max" value="5">
+            </div>
+            <label>CANTIDAD DE BOTS</label>
+            <input type="number" id="threads" value="10">
+            
+            <button class="btn-start" onclick="control('start')">INICIAR LOOP INFINITO</button>
+            <button class="btn-stop" onclick="control('stop')">DETENER TODO</button>
+
+            <div class="stats">
+                <div class="s-item">MB TOTALES<span id="st_total">0</span></div>
+                <div class="s-item">VELOCIDAD<span id="st_speed">0 MB/s</span></div>
+                <div class="s-item">HILOS<span id="st_hilos">0</span></div>
+                <div class="s-item">PING<span id="st_lat">0ms</span></div>
+            </div>
+        </div>
+        <div class="box">
+            <canvas id="netChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        const ctx = document.getElementById('netChart').getContext('2d');
+
+        async function control(action) {
+            const body = {
+                action,
+                target: document.getElementById('target').value,
+                port: document.getElementById('port').value,
+                type: document.getElementById('type').value,
+                threads: document.getElementById('threads').value,
+                mb_min: document.getElementById('mb_min').value,
+                mb_max: document.getElementById('mb_max').value
+            };
+            await fetch('/api/control', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+        }
+
+        function setupChart() {
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(30).fill(''),
+                    datasets: [{
+                        label: 'Tráfico MB/s',
+                        data: Array(30).fill(0),
+                        borderColor: '#00ff00',
+                        backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { animation: false, scales: { y: { beginAtZero: true } } }
+            });
+        }
+
+        setInterval(async () => {
+            const r = await fetch('/api/stats');
+            const d = await r.json();
+            document.getElementById('st_total').innerText = d.total_enviado_mb.toFixed(1);
+            document.getElementById('st_speed').innerText = d.velocidad_mbs + " MB/s";
+            document.getElementById('st_hilos').innerText = d.hilos_vivos;
+            document.getElementById('st_lat').innerText = d.latencia;
+
+            chart.data.datasets[0].data.push(d.velocidad_mbs);
+            chart.data.datasets[0].data.shift();
+            chart.update();
+        }, 1000);
+
+        setupChart();
+    </script>
+</body>
+                  </html>
