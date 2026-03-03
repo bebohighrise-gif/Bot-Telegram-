@@ -2,108 +2,54 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Core Terminal Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP KILLER 1000MB</title>
     <style>
-        :root { --neon: #00ff88; --bg: #050505; --red: #ff3e3e; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { 
-            background: var(--bg); color: var(--neon); 
-            font-family: 'Segoe UI', monospace; margin: 0; 
-            display: flex; justify-content: center; align-items: center; min-height: 100vh;
-        }
-        .container { 
-            width: 95%; max-width: 450px; background: #0f0f0f; 
-            padding: 25px; border: 1px solid var(--neon);
-            border-radius: 12px; box-shadow: 0 0 30px rgba(0, 255, 136, 0.15);
-        }
-        h1 { font-size: 1.2rem; text-align: center; text-transform: uppercase; letter-spacing: 2px; margin-top: 0; }
-        .status-bar { 
-            background: #000; padding: 12px; border-radius: 6px; 
-            margin-bottom: 20px; font-size: 0.8rem; border-left: 4px solid var(--neon);
-            font-weight: bold;
-        }
-        label { font-size: 0.7rem; text-transform: uppercase; opacity: 0.7; }
-        input { 
-            width: 100%; background: #111; border: 1px solid #333; 
-            color: #fff; padding: 14px; margin: 8px 0 18px 0; border-radius: 8px; 
-            outline: none; font-size: 1rem;
-        }
-        input:focus { border-color: var(--neon); }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        button { 
-            padding: 16px; border: none; border-radius: 8px; 
-            font-weight: bold; cursor: pointer; text-transform: uppercase; font-size: 0.9rem;
-        }
-        .btn-start { background: var(--neon); color: #000; box-shadow: 0 4px 15px rgba(0, 255, 136, 0.2); }
-        .btn-stop { background: var(--red); color: #fff; }
-        .stats-display { 
-            margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr;
-            border-top: 1px solid #222; padding-top: 20px; gap: 10px;
-        }
-        .stat-box { background: #111; padding: 15px; border-radius: 8px; text-align: center; }
-        .stat-box small { display: block; color: #666; font-size: 0.65rem; margin-top: 5px; }
-        .stat-box span { font-size: 1.1rem; font-weight: bold; color: #fff; }
+        body { background: #000; color: #0f0; font-family: monospace; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .panel { border: 1px solid #0f0; padding: 20px; border-radius: 5px; width: 90%; max-width: 350px; text-align: center; }
+        input { width: 100%; padding: 10px; margin: 10px 0; background: #111; border: 1px solid #0f0; color: #0f0; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; cursor: pointer; font-weight: bold; border: none; margin-top: 5px; }
+        .on { background: #0f0; color: #000; }
+        .off { background: #f00; color: #fff; }
+        .st { margin-top: 20px; font-size: 0.8rem; border-top: 1px solid #333; padding-top: 10px; }
+        #total { font-size: 2rem; color: #fff; display: block; margin: 5px 0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Core Bot Terminal</h1>
-        <div class="status-bar">STATUS: <span id="status">CONNECTING...</span></div>
+    <div class="panel">
+        <h3>REAL IP INJECTOR</h3>
+        <input type="text" id="target" placeholder="ESCRIBE IP REAL">
+        <input type="number" id="threads" placeholder="CANTIDAD BOTS" value="10">
         
-        <label>Objetivo (IP o URL)</label>
-        <input type="text" id="target" placeholder="1.1.1.1" autocomplete="off">
-        
-        <label>Bots Simultáneos</label>
-        <input type="number" id="threads" value="10">
-        
-        <div class="grid">
-            <button class="btn-start" onclick="control('start')">Iniciar</button>
-            <button class="btn-stop" onclick="control('stop')">Detener</button>
-        </div>
+        <button class="on" onclick="run('start')">INICIAR LOOP (1GB)</button>
+        <button class="off" onclick="run('stop')">DETENER</button>
 
-        <div class="stats-display">
-            <div class="stat-box">
-                <span><span id="st_total">0</span> MB</span>
-                <small>DATA SENT</small>
-            </div>
-            <div class="stat-box">
-                <span id="st_hilos">0</span>
-                <small>ACTIVE BOTS</small>
-            </div>
+        <div class="st">
+            IP OBJETIVO: <span id="cur_ip">0.0.0.0</span><br>
+            <span id="total">0</span>
+            MB ENVIADOS
+            <br>BOTS ACTIVOS: <span id="hilos">0</span>
         </div>
     </div>
 
     <script>
-        async function control(action) {
-            try {
-                await fetch('/api/control', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: action,
-                        target: document.getElementById('target').value,
-                        threads: document.getElementById('threads').value
-                    })
-                });
-            } catch (e) { console.log("Error de red"); }
+        async function run(a) {
+            await fetch('/api/control', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: a,
+                    target: document.getElementById('target').value,
+                    threads: document.getElementById('threads').value
+                })
+            });
         }
-
         setInterval(async () => {
-            try {
-                const r = await fetch('/api/stats');
-                const d = await r.json();
-                
-                // Aseguramos que si los datos existen se pongan, si no, ponemos 0 o 'OFF'
-                document.getElementById('st_total').innerText = d.total_mb || 0;
-                document.getElementById('st_hilos').innerText = d.hilos || 0;
-                document.getElementById('status').innerText = d.status || 'READY';
-                
-                const statusNode = document.getElementById('status');
-                statusNode.style.color = d.status === 'ATTACKING' ? '#00ff88' : '#ff3e3e';
-            } catch (e) {
-                document.getElementById('status').innerText = 'LOST CONNECTION';
-            }
+            const r = await fetch('/api/stats');
+            const d = await r.json();
+            document.getElementById('total').innerText = d.total_mb.toLocaleString();
+            document.getElementById('hilos').innerText = d.hilos;
+            document.getElementById('cur_ip').innerText = d.ip;
         }, 1000);
     </script>
 </body>
