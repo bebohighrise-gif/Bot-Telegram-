@@ -23,7 +23,7 @@ logging.basicConfig(
 )
 
 # Telegram Bot
-TELEGRAM_TOKEN = "8283445971:AAEO95Ae95bW97yCv8Vvq-7IsiYL4AyVFhg"
+TELEGRAM_TOKEN = "8401493599:AAF1SbAfmEepa-9gkTa3BgloyfoEq5vOIGA"
 ADMIN_CHAT_ID = 7653419875
 
 # Archivos
