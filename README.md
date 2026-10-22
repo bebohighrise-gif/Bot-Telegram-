@@ -1,34 +1,39 @@
-# 💖 Bot Telegram tipo OnlyFans
+# 💖 Bot Telegram tipo OnlyFans (V2 Avanzado)
 
-Bot de venta de contenido exclusivo con pagos manuales y verificación por captura.
+Plataforma de contenido exclusivo con verificación de edad, roles, suscripciones y paneles de creador/admin.
 
-## Características
+## Características principales
 
-- Catálogo de packs / contenido
-- Formas de pago editables por el dueño
-- Usuario paga y envía captura → el bot te notifica
-- Aprobación / rechazo con un solo toque
-- Entrega automática del contenido al aprobar
-- Panel de administración completo
+### Registro y Verificación
+- Registro automático con Telegram
+- Confirmación de mayoría de edad (18+)
+- Aceptación de términos y condiciones
+- Roles: **Usuario**, **Creador**, **Admin**
+- Para convertirse en Creador: pago de **50 USD** + verificación de identidad (manual/admin + placeholder para Veriff)
 
-## Comandos Usuario
+### Menús
+- Todo con botones **inline**
+- Mensajes que se **editan** (no llenan el chat)
+- Paginación y botón « Volver
 
-| Comando | Descripción |
-|---------|-------------|
-| `/start` | Iniciar el bot |
-| `/catalogo` | Ver packs disponibles |
-| `/mis_compras` | Ver lo que ya compraste |
-| `/ayuda` | Ayuda |
+### Suscripciones y Pagos
+- Planes: Mensual / Trimestral
+- Acceso automático a canal privado del creador
+- Pagos: Manual (captura) + preparación para Telegram Stars
+- Registro de transacciones
 
-## Comandos Admin
+### Panel de Creador
+- Subir contenido
+- Configurar precios de suscripción
+- Estadísticas de suscriptores e ingresos
+- Mensajes masivos a suscriptores
 
-| Comando | Descripción |
-|---------|-------------|
-| `/admin` | Panel de administración |
-| `/set_pagos` | Actualizar formas de pago |
-| `/add_pack` | Agregar nuevo pack |
-| `/pendientes` | Ver pagos pendientes |
-| `/stats` | Estadísticas |
+### Panel Admin + Seguridad
+- Baneos y desbaneos
+- Reportes y moderación
+- Logs de acciones
+- protect_content en contenido sensible
+- Anti-spam básico
 
 ## Instalación
 
@@ -37,16 +42,24 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Configuración
+## Configuración obligatoria (main.py)
 
-Edita en `main.py`:
-- `TELEGRAM_TOKEN` → Token de @BotFather
-- `ADMIN_ID` → Tu ID de Telegram (usa @userinfobot)
+```python
+TELEGRAM_TOKEN = "tu_token_de_BotFather"
+ADMIN_ID = 123456789          # Tu ID (usa @userinfobot)
+CREATOR_FEE = 50.0            # Precio para ser creador (USD)
+PRIVATE_CHANNEL_ID = -100...  # ID del canal privado principal (opcional)
+```
 
-## Flujo de pago
+## Flujo de usuario
 
-1. Usuario elige un pack
-2. Ve las formas de pago actuales
-3. Realiza el pago y envía la captura al bot
-4. Tú recibes notificación + botones Aprobar / Rechazar
-5. Al aprobar → el contenido se entrega automáticamente
+1. `/start` → Verificación de edad + Términos
+2. Menú principal
+3. Explorar creadores / Suscribirse
+4. (Opcional) Pagar 50$ para convertirse en Creador
+
+## Notas importantes
+
+- La verificación de identidad de creadores está preparada para integrar **Veriff** (o similar). Actualmente se hace aprobación manual por admin.
+- Telegram Stars se puede activar fácilmente cuando tengas el bot configurado para pagos.
+- Usa `protect_content=True` en el contenido premium.
