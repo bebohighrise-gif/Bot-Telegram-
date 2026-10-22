@@ -1,163 +1,67 @@
-# OnlyFans_ManagerBot — Guía completa de creación en Telegram
+# OnlyFans_ManagerBot — V9
 
-## 1. Crear / configurar el BOT en @BotFather
+Bot de Telegram para perfiles de creadores, planes de pago manual, contenido, moderación y solicitudes de videollamada. Esta versión mantiene SQLite y `pyTelegramBotAPI`.
 
-1. Abre Telegram y busca **@BotFather**
-2. Envía `/newbot` (o usa el bot que ya tienes)
-3. Nombre visible: `OnlyFans Manager` (o el que quieras)
-4. Username: debe terminar en `bot`, ejemplo: `OnlyFans_ManagerBot`
-5. Copia el **TOKEN** que te da (formato `123456:ABC-DEF...`)
+> **Estado:** el código contiene pruebas automáticas básicas, pero no debe considerarse certificado ni listo para producción. Los pagos siguen siendo revisados manualmente. La cámara de la Mini App no transmite las imágenes: al iniciar la solicitud, el bot pide que el usuario adjunte documento y selfie en el chat privado.
 
-### Configuraciones obligatorias en BotFather
+## Requisitos
 
-Envía estos comandos a @BotFather:
+- Python 3.10 o posterior.
+- Un bot creado con [@BotFather](https://t.me/BotFather).
+- Un `ADMIN_ID` numérico positivo.
+- Para abrir la Mini App, una URL HTTPS estable y configurada en BotFather.
 
-```
-/setdescription
-```
-Elige tu bot y pon algo como:
-```
-Plataforma de contenido exclusivo. Solo mayores de 18. Verificación de edad y género.
-```
+## Instalación y configuración
 
-```
-/setabouttext
-```
-```
-OnlyFans Manager Bot - Contenido exclusivo con verificación real
-```
-
-```
-/setuserpic
-```
-(Envía una foto de perfil del bot)
-
-```
-/setcommands
-```
-Pega esto:
-```
-start - Iniciar el bot / Start the bot
-help - Ayuda / Help
-```
-
-### Activar la Mini App (muy importante)
-
-1. En @BotFather envía `/mybots`
-2. Elige tu bot
-3. **Bot Settings** → **Configure Mini App**
-4. **Enable Mini App**
-5. Pon la URL HTTPS donde alojaste `webapp/verification.html`
-   Ejemplo: `https://tuusuario.github.io/Bot-Telegram-/webapp/verification.html`
-
----
-
-## 2. Grupo
-
-Ya tienes el invite:
-**https://t.me/+oMkBHSWhjf5lNTZh**
-
-### Qué hacer con el grupo:
-
-1. Entra al grupo con ese enlace
-2. Añade el bot como **administrador**:
-   - Toca el nombre del grupo → Administradores → Añadir administrador
-   - Busca `@OnlyFans_ManagerBot` (o el username que pusiste)
-   - Dale permisos de:
-     - Eliminar mensajes
-     - Banear usuarios
-     - Invitar usuarios (importante para invite links)
-3. Para obtener el **ID numérico** del grupo:
-   - Añade temporalmente @userinfobot o @getidsbot al grupo
-   - O reenvía un mensaje del grupo a @userinfobot
-   - El ID suele ser negativo, ejemplo: `-1001234567890`
-
----
-
-## 3. Mini App de verificación (cámara)
-
-Archivo del repo: `webapp/verification.html`
-
-### Cómo publicarla (elige una):
-
-**Opción A – GitHub Pages (gratis)**
-1. El archivo ya está en tu repo
-2. Ve a Settings del repo → Pages
-3. Source: Deploy from branch `main` / folder `/webapp` o raíz
-4. La URL será algo como:
-   `https://bebohighrise-gif.github.io/Bot-Telegram-/verification.html`
-   (o la ruta que te salga)
-
-**Opción B – Cloudflare Pages / Vercel / Netlify**
-- Sube solo la carpeta `webapp`
-- Te dan una URL HTTPS
-
-Luego pones esa URL en:
-- BotFather → Configure Mini App
-- Y en `main.py` → `WEBAPP_VERIFICATION_URL = "https://..."`
-
----
-
-## 4. Configurar el código (main.py)
-
-Abre `main.py` y cambia estas líneas:
-
-```python
-TELEGRAM_TOKEN = "EL_TOKEN_QUE_TE_DIO_BOTFATHER"
-ADMIN_ID = 7653419875
-WEBAPP_VERIFICATION_URL = "https://TU_URL_DE_LA_MINI_APP"
-```
-
----
-
-## 5. Arrancar el bot
+No pegues el token en `main.py`, en el README ni en mensajes. Configura las variables en el entorno del servicio que ejecutará el bot:
 
 ```bash
+python3 -m venv .venv
+. .venv/bin/activate
 pip install -r requirements.txt
+
+export TELEGRAM_TOKEN='token_entregado_por_BotFather'
+export ADMIN_ID='123456789'
+export DB_FILE='/ruta/persistente/bot.db'
+# Opcionales:
+export WEBAPP_VERIFICATION_URL='https://tu-dominio.example/verification.html'
+export GROUP_ID='-1001234567890'
+export GROUP_INVITE='https://t.me/tu_invitacion'
+```
+
+Protege el archivo de base de datos y el entorno del proceso con permisos mínimos. Si un token real se compartió o comprometió, revócalo en BotFather y crea uno nuevo.
+
+## Ejecutar
+
+```bash
 python main.py
 ```
 
-Si todo está bien verás:
+El proceso valida la configuración antes de iniciar. Para producción, ejecútalo bajo un supervisor de servicios y usa un almacenamiento persistente con copias de seguridad cifradas y probadas.
+
+## Mini App y verificación
+
+1. Publica `webapp/verification.html` en HTTPS y configura la misma URL en `WEBAPP_VERIFICATION_URL` y BotFather.
+2. El bot abre la Mini App desde un botón de teclado de respuesta de Telegram, necesario para entregar `web_app_data`. La Mini App permite capturar y revisar fotos localmente, pero **no las sube**. La señal solo avisa al bot para pedir las imágenes por el chat privado.
+3. El usuario debe adjuntar primero la foto del documento y después la selfie. El bot reenvía ambas al administrador para revisión.
+4. No habilites esta función hasta definir aviso de privacidad, base legal, acceso autorizado, período de retención, proceso de borrado y protección de copias para datos de identidad. El bot no aplica todavía eliminación automática de esas fotos.
+
+## Pruebas
+
+```bash
+. .venv/bin/activate
+TELEGRAM_TOKEN='123456:TEST_ONLY' ADMIN_ID='123456789' python -m unittest discover -s tests -v
+python -m py_compile main.py
+pip-audit -r requirements.txt
 ```
-OnlyFans_ManagerBot V4 started
-Admin ID: 7653419875
-WebApp URL: https://...
-Group: https://t.me/+oMkBHSWhjf5lNTZh
-```
 
----
+El token de prueba sirve solo para cargar código y ejecutar pruebas; no permite conectarse a Telegram. `pip-audit` debe instalarse previamente si aún no está disponible (`pip install pip-audit`).
 
-## Resumen de lo que tienes que crear/confirmar
+## Seguridad y operación pendientes
 
-| Qué | Dónde | Estado que debes confirmar |
-|-----|-------|---------------------------|
-| Bot creado | @BotFather | Username + Token |
-| Nombre | OnlyFans_ManagerBot (o similar) | Listo |
-| Descripción y comandos | @BotFather | /setdescription + /setcommands |
-| Mini App activada | BotFather → Configure Mini App | URL HTTPS puesta |
-| Archivo verification.html | Hosting HTTPS | Publicado |
-| WEBAPP_VERIFICATION_URL | main.py | Misma URL que en BotFather |
-| Grupo | https://t.me/+oMkBHSWhjf5lNTZh | Bot añadido como admin |
-| Admin ID | 7653419875 | Ya está en el código |
-| Token en main.py | main.py | Pegado correctamente |
-
----
-
-## Flujo de verificación para el usuario
-
-1. Usuario entra al bot → /start
-2. Declara edad + acepta términos
-3. Va a **Mi Cuenta** → **Verificación con cámara**
-4. Se abre la Mini App automáticamente
-5. Usa la cámara (documento + selfie)
-6. Tú recibes las fotos y eliges género (Hombre / Mujer) o rechazas
-7. Se asignan los badges `🔞✅` y `♂️/♀️`
-
----
-
-## Si algo no abre la cámara
-
-- La Mini App **solo funciona dentro de Telegram** (no en navegador normal)
-- Debe ser URL **HTTPS**
-- El usuario debe dar permiso de cámara cuando el móvil lo pida
-- Prueba primero en el móvil (Telegram app)
+- Sustituir la revisión manual de capturas por un proveedor de pagos con confirmación server-side antes de otorgar acceso.
+- Añadir límites de tasa, registros operativos sin datos sensibles, monitorización, gestión de errores y una estrategia probada de backup/restore.
+- Definir retención y borrado de IDs de archivos de documentos y selfies, junto con controles de acceso y respuesta ante incidentes.
+- No considerar `protect_content` una protección contra capturas de pantalla o redistribución.
+- Antes de actualizar desde una base V4, detener el proceso y hacer una copia recuperable. La inicialización añade columnas, convierte arrays antiguos de medios en filas, elimina la restricción V4 de una suscripción por creador conservando sus filas y crea los planes de creadores antiguos usando sus precios guardados; no reemplaza ni elimina el archivo SQLite.
+- Ejecutar las pruebas en cada cambio y probar manualmente los flujos de usuario y administrador con un bot de pruebas antes de desplegar.

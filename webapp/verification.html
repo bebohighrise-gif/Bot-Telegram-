@@ -53,6 +53,7 @@
     <h1 id="title">Verificación de Edad</h1>
     <p id="desc">Para obtener el badge de edad y género verificados necesitas tomar dos fotos con la cámara:</p>
     <p>1. Foto de tu documento (DNI / Pasaporte)<br>2. Selfie sosteniendo el documento</p>
+    <p id="delivery-note">Las fotos no se suben automáticamente desde esta pantalla. Después de continuar, envíalas en el chat privado del bot; se compartirán con el administrador para revisión.</p>
     <button class="btn" id="btn-start" onclick="startCamera()">Abrir cámara</button>
   </div>
 
@@ -84,8 +85,8 @@
   </div>
 
   <div class="step" id="step-done">
-    <h1>✅ Enviado</h1>
-    <p id="done-msg">Tus fotos han sido enviadas. El administrador las revisará y te asignará los badges.</p>
+    <h1>Solicitud iniciada</h1>
+    <p id="done-msg">Las fotos aún no se enviaron. Adjunta el documento y la selfie en el chat privado del bot.</p>
   </div>
 
   <div class="status" id="status"></div>
@@ -102,17 +103,20 @@
         title: 'Verificación de Edad',
         desc: 'Para obtener el badge de edad y género verificados necesitas tomar dos fotos con la cámara:',
         start: 'Abrir cámara',
-        done: 'Tus fotos han sido enviadas. El administrador las revisará y te asignará los badges.'
+        delivery: 'Las fotos no se suben automáticamente desde esta pantalla. Después de continuar, envíalas en el chat privado del bot; se compartirán con el administrador para revisión.',
+        done: 'Las fotos aún no se enviaron. Adjunta el documento y la selfie en el chat privado del bot.'
       },
       en: {
         title: 'Age Verification',
         desc: 'To get the verified age and gender badge you need to take two photos with the camera:',
         start: 'Open camera',
-        done: 'Your photos have been sent. The administrator will review them and assign the badges.'
+        delivery: 'Photos are not uploaded automatically from this screen. After continuing, send them in the bot private chat; they will be shared with the administrator for review.',
+        done: 'Your photos have not been sent. Attach the document and selfie in the bot private chat.'
       }
     };
     document.getElementById('title').textContent = i18n[lang].title;
-    document.getElementById('desc').innerHTML = i18n[lang].desc + '<br>1. Document photo (ID / Passport)<br>2. Selfie holding the document';
+    document.getElementById('desc').textContent = i18n[lang].desc + ' 1. Document photo (ID / Passport). 2. Selfie holding the document.';
+    document.getElementById('delivery-note').textContent = i18n[lang].delivery;
     document.getElementById('btn-start').textContent = i18n[lang].start;
     document.getElementById('done-msg').textContent = i18n[lang].done;
 
@@ -145,14 +149,24 @@
       if (stream) stream.getTracks().forEach(t => t.stop());
       currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
       const constraints = { video: { facingMode: currentFacing }, audio: false };
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      const activeVideo = document.querySelector('.step.active video');
-      if (activeVideo) activeVideo.srcObject = stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const activeVideo = document.querySelector('.step.active video');
+        if (activeVideo) activeVideo.srcObject = stream;
+      } catch (e) {
+        stream = null;
+        document.getElementById('status').textContent = 'No se pudo cambiar la cámara. Revisa los permisos.';
+        tg.showAlert('No se pudo abrir esa cámara. Revisa los permisos e inténtalo de nuevo.');
+      }
     }
 
     function capture(type) {
       const video = type === 'doc' ? document.getElementById('video') : document.getElementById('video2');
       const canvas = document.getElementById('canvas');
+      if (!video.videoWidth || !video.videoHeight) {
+        tg.showAlert('La cámara aún no está lista. Espera un momento e inténtalo de nuevo.');
+        return;
+      }
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
@@ -169,6 +183,10 @@
             stream = s;
             document.getElementById('video2').srcObject = s;
             showStep('step-selfie');
+          }).catch(() => {
+            stream = null;
+            document.getElementById('status').textContent = 'No se pudo abrir la cámara frontal.';
+            tg.showAlert('No se pudo abrir la cámara frontal. Revisa los permisos.');
           });
       } else {
         selfieData = dataUrl;
@@ -180,8 +198,12 @@
     }
 
     function restart() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
       docData = null;
       selfieData = null;
+      document.getElementById('preview-doc').removeAttribute('src');
+      document.getElementById('preview-selfie').removeAttribute('src');
       showStep('step-intro');
     }
 

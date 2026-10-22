@@ -8,20 +8,26 @@ OnlyFans_ManagerBot - V9
 - Todo lo anterior (perfiles, packs, likes, protect_content, grupo...)
 """
 
+import html
+import json
+import math
+import os
 import telebot
 from telebot import types
 import sqlite3
 from datetime import datetime, timedelta
 
-TELEGRAM_TOKEN = "PON_AQUI_TU_TOKEN"
-ADMIN_ID = 7653419875
-GROUP_ID = None
-GROUP_INVITE = "https://t.me/+oMkBHSWhjf5lNTZh"
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
+GROUP_ID = int(os.environ["GROUP_ID"]) if os.environ.get("GROUP_ID") else None
+GROUP_INVITE = os.environ.get("GROUP_INVITE", "")
 CREATOR_FEE = 50.0
-PLATFORM_FEE_PERCENT = 20.0          # TÚ ganas este % de cada pago de creadores
+PLATFORM_FEE_PERCENT = 20.0
 PROMO_COOLDOWN_MINUTES = 30
-WEBAPP_VERIFICATION_URL = "https://TU_DOMINIO.com/verification.html"
-DB_FILE = "bot.db"
+WEBAPP_VERIFICATION_URL = os.environ.get("WEBAPP_VERIFICATION_URL", "")
+DB_FILE = os.environ.get("DB_FILE", "bot.db")
+MIN_PLAN_PRICE = 0.50
+MAX_PLAN_PRICE = 10000.00
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN, parse_mode="HTML")
 group_muted = False
@@ -133,6 +139,7 @@ def t(key, lang="es", **kwargs):
 # ==================== DB ====================
 def init_db():
     conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT,
@@ -190,6 +197,97 @@ def init_db():
         user_id INTEGER, command TEXT, last_used TEXT, PRIMARY KEY (user_id, command))""")
     c.execute("""CREATE TABLE IF NOT EXISTS group_settings (key TEXT PRIMARY KEY, value TEXT)""")
 
+    # The bot has been deployed with earlier schemas. Add new columns in-place
+    # before handlers use them; never delete or recreate a user's database.
+    migrations = {
+        "users": {"bio": "TEXT DEFAULT ''"},
+        "subscriptions": {
+            "plan_id": "INTEGER", "plan_type": "TEXT", "credits_left": "INTEGER DEFAULT 0",
+        },
+        "content": {
+            "file_id": "TEXT", "media_type": "TEXT DEFAULT 'photo'",
+            "likes": "INTEGER DEFAULT 0", "dislikes": "INTEGER DEFAULT 0",
+        },
+        "transactions": {
+            "platform_fee": "REAL DEFAULT 0", "creator_net": "REAL DEFAULT 0",
+            "plan_id": "INTEGER",
+        },
+        "videocalls": {"transaction_id": "INTEGER"},
+    }
+    for table, columns in migrations.items():
+        existing = {row[1] for row in c.execute(f"PRAGMA table_info({table})")}
+        legacy_transaction_fees = table == "transactions" and "creator_net" not in existing
+        for column, definition in columns.items():
+            if column not in existing:
+                c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+        if legacy_transaction_fees:
+            c.execute("UPDATE transactions SET creator_net=amount WHERE type!='creator_fee' AND creator_net=0")
+
+    # V4 enforced one subscription per user/creator. V9 supports separate
+    # packs, so replace only that obsolete uniqueness constraint, preserving
+    # every existing subscription and its ID.
+    legacy_subscription_unique = False
+    for index in c.execute("PRAGMA index_list(subscriptions)").fetchall():
+        if index["unique"]:
+            index_name = index["name"].replace('"', '""')
+            indexed_columns = [r["name"] for r in c.execute(
+                f'PRAGMA index_info("{index_name}")').fetchall()]
+            if indexed_columns == ["user_id", "creator_id"]:
+                legacy_subscription_unique = True
+                break
+    if legacy_subscription_unique:
+        old_subscriptions = c.execute("SELECT * FROM subscriptions").fetchall()
+        c.execute("""CREATE TABLE subscriptions_v9 (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, creator_id INTEGER,
+            plan_id INTEGER, plan_type TEXT, amount REAL, status TEXT DEFAULT 'active',
+            start_date TEXT, end_date TEXT, credits_left INTEGER DEFAULT 0,
+            payment_method TEXT, created_at TEXT)""")
+        old_columns = set(old_subscriptions[0].keys()) if old_subscriptions else set()
+        for sub in old_subscriptions:
+            plan_type = (sub["plan_type"] if "plan_type" in old_columns else None)
+            if not plan_type and "plan" in old_columns:
+                plan_type = sub["plan"]
+            c.execute("""INSERT INTO subscriptions_v9
+                (id,user_id,creator_id,plan_id,plan_type,amount,status,start_date,end_date,credits_left,payment_method,created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (sub["id"], sub["user_id"], sub["creator_id"], sub["plan_id"], plan_type,
+                 sub["amount"], sub["status"], sub["start_date"], sub["end_date"],
+                 sub["credits_left"] or 0, sub["payment_method"], sub["created_at"]))
+        c.execute("DROP TABLE subscriptions")
+        c.execute("ALTER TABLE subscriptions_v9 RENAME TO subscriptions")
+
+    # Preserve legacy V4 media when converting its JSON file-id arrays to V9's
+    # one-file-per-row representation. Re-running init_db is idempotent.
+    legacy_columns = {row[1] for row in c.execute("PRAGMA table_info(content)")}
+    if {"file_ids", "media_types"}.issubset(legacy_columns):
+        legacy_rows = c.execute(
+            "SELECT id, creator_id, title, description, file_ids, media_types, is_premium, views, created_at "
+            "FROM content WHERE file_id IS NULL AND file_ids IS NOT NULL"
+        ).fetchall()
+        for row in legacy_rows:
+            try:
+                file_ids = json.loads(row["file_ids"])
+                media_types = json.loads(row["media_types"] or "[]")
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(file_ids, list) or not file_ids:
+                continue
+            for index, file_id in enumerate(file_ids):
+                if not isinstance(file_id, str) or not file_id:
+                    continue
+                media_type = media_types[index] if index < len(media_types) else "photo"
+                if media_type not in ("photo", "video"):
+                    media_type = "photo"
+                if index == 0:
+                    c.execute("UPDATE content SET file_id=?, media_type=? WHERE id=?",
+                              (file_id, media_type, row["id"]))
+                else:
+                    c.execute("""INSERT INTO content
+                        (creator_id,title,description,file_id,media_type,is_premium,views,created_at)
+                        VALUES (?,?,?,?,?,?,?,?)""",
+                              (row["creator_id"], row["title"], row["description"], file_id,
+                               media_type, row["is_premium"], row["views"], row["created_at"]))
+
     defaults = {
         "payment_methods": "💳 <b>Formas de pago:</b>\n\n• Transferencia / Bizum\n• Crypto (USDT/BTC)\n• Telegram Stars\n\n<i>El admin actualiza los datos.</i>",
         "terms": "📜 <b>Términos</b>\n1. +18.\n2. Uso personal.\n3. Prohibida redistribución.\n4. La plataforma retiene un % de cada pago.",
@@ -205,6 +303,33 @@ def init_db():
     conn.commit()
     conn.close()
     ensure_admin()
+    ensure_existing_creator_plans()
+
+def ensure_existing_creator_plans():
+    """Seed V9 plans for already-approved V4 creators without overwriting data."""
+    conn = get_db()
+    creator_columns = {row[1] for row in conn.execute("PRAGMA table_info(creators)")}
+    creators = conn.execute("""SELECT c.* FROM creators c JOIN users u ON u.user_id=c.user_id
+        WHERE u.creator_verified=2 AND u.banned=0""").fetchall()
+    for creator in creators:
+        if conn.execute("SELECT 1 FROM creator_plans WHERE creator_id=? LIMIT 1",
+                        (creator["user_id"],)).fetchone():
+            continue
+        for plan_type, info in PLAN_TYPES.items():
+            price = info["default_price"]
+            legacy_price_column = {"monthly": "monthly_price", "quarterly": "quarterly_price"}.get(plan_type)
+            if legacy_price_column in creator_columns:
+                try:
+                    price = validate_plan_price(creator[legacy_price_column])
+                except (TypeError, ValueError):
+                    pass
+            conn.execute("""INSERT INTO creator_plans
+                (creator_id,plan_type,name,price,days,credits,description)
+                VALUES (?,?,?,?,?,?,?)""",
+                (creator["user_id"], plan_type, info["name"], price,
+                 info["days"], info["credits"], info["name"]))
+    conn.commit()
+    conn.close()
 
 def ensure_admin():
     conn = get_db()
@@ -222,8 +347,9 @@ def ensure_admin():
     conn.close()
 
 def get_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_FILE, timeout=15)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=15000")
     return conn
 
 def get_setting(key):
@@ -240,15 +366,31 @@ def set_setting(key, value):
 
 def get_platform_fee_percent():
     try:
-        return float(get_setting("platform_fee") or PLATFORM_FEE_PERCENT)
-    except:
-        return PLATFORM_FEE_PERCENT
+        value = float(get_setting("platform_fee") or PLATFORM_FEE_PERCENT)
+        if math.isfinite(value) and 0 <= value <= 100:
+            return value
+    except (sqlite3.Error, TypeError, ValueError):
+        pass
+    return PLATFORM_FEE_PERCENT
+
+def validate_plan_price(value):
+    """Return a bounded finite price or raise ValueError."""
+    try:
+        price = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("Precio inválido")
+    if not math.isfinite(price) or not MIN_PLAN_PRICE <= price <= MAX_PLAN_PRICE:
+        raise ValueError("El precio debe estar entre $0.50 y $10,000")
+    return round(price, 2)
+
+def escape_html(value):
+    return html.escape(str(value or ""), quote=False)
 
 def calc_fee(amount):
+    amount = validate_plan_price(amount)
     pct = get_platform_fee_percent()
     fee = round(amount * pct / 100, 2)
-    net = round(amount - fee, 2)
-    return fee, net
+    return fee, round(amount - fee, 2)
 
 def get_group_setting(key):
     conn = get_db()
@@ -286,7 +428,7 @@ def is_banned(uid):
     return u and u["banned"] == 1
 def is_creator(uid):
     u = get_user(uid)
-    return u and u["role"] in ("creator", "admin") and u["creator_verified"] == 2
+    return u and not u["banned"] and u["role"] in ("creator", "admin") and u["creator_verified"] == 2
 def is_vip(uid):
     if is_admin(uid) or is_creator(uid): return True
     conn = get_db()
@@ -298,6 +440,7 @@ def format_price(p): return f"${p:.2f}"
 
 def has_access(user_id, creator_id):
     if is_admin(user_id): return True
+    if is_banned(user_id): return False
     conn = get_db()
     row = conn.execute("""SELECT 1 FROM subscriptions WHERE user_id=? AND creator_id=? AND status='active'
         AND (end_date > ? OR credits_left > 0)""", (user_id, creator_id, datetime.now().isoformat())).fetchone()
@@ -367,7 +510,7 @@ def main_menu_kb(user_id, lang):
 def send_main_menu(chat_id, user_id, message_id=None, lang=None):
     user = get_user(user_id)
     lang = lang or (user["language"] if user else "es")
-    text = t("welcome", lang, name=user["first_name"] if user else "User")
+    text = t("welcome", lang, name=escape_html(user["first_name"] if user else "User"))
     kb = main_menu_kb(user_id, lang)
     if message_id:
         try:
@@ -385,13 +528,13 @@ def cmd_start(message):
     if is_banned(message.from_user.id):
         bot.send_message(message.chat.id, t("banned", get_lang(tg_user=message.from_user)))
         return
-    if message.text and "creator_" in message.text:
+    referral_creator_id = None
+    args = (message.text or "").split(maxsplit=1)
+    if len(args) == 2 and args[1].startswith("creator_"):
         try:
-            cid = int(message.text.split("creator_")[1].split()[0])
-            upsert_user(message.from_user)
-            show_profile(message.chat.id, message.from_user.id, cid)
-            return
-        except: pass
+            referral_creator_id = int(args[1][8:])
+        except ValueError:
+            referral_creator_id = None
     upsert_user(message.from_user)
     user = get_user(message.from_user.id)
     lang = user["language"] or get_lang(tg_user=message.from_user)
@@ -400,6 +543,9 @@ def cmd_start(message):
         return
     if not user["terms_accepted"]:
         ask_terms(message.chat.id, lang)
+        return
+    if referral_creator_id:
+        show_profile(message.chat.id, message.from_user.id, referral_creator_id)
         return
     send_main_menu(message.chat.id, message.from_user.id, lang=lang)
 
@@ -412,6 +558,10 @@ def ask_age(chat_id, lang="es"):
 @bot.callback_query_handler(func=lambda c: c.data in ("age_yes", "age_no"))
 def cb_age(call):
     lang = get_lang(call.from_user.id, call.from_user)
+    user = get_user(call.from_user.id)
+    if not user or is_banned(call.from_user.id):
+        bot.answer_callback_query(call.id, "Sesión no válida", show_alert=True)
+        return
     if call.data == "age_no":
         bot.edit_message_text(t("age_denied", lang), call.message.chat.id, call.message.message_id)
         bot.answer_callback_query(call.id)
@@ -438,6 +588,10 @@ def ask_terms(chat_id, lang="es", message_id=None):
 @bot.callback_query_handler(func=lambda c: c.data in ("terms_yes", "terms_no"))
 def cb_terms(call):
     lang = get_lang(call.from_user.id, call.from_user)
+    user = get_user(call.from_user.id)
+    if not user or not user["age_declared"] or is_banned(call.from_user.id):
+        bot.answer_callback_query(call.id, "Completa primero la confirmación de edad", show_alert=True)
+        return
     if call.data == "terms_no":
         bot.edit_message_text(t("terms_must", lang), call.message.chat.id, call.message.message_id)
         bot.answer_callback_query(call.id)
@@ -502,20 +656,20 @@ def show_profile(chat_id, viewer_id, target_id, message_id=None):
     if not u:
         bot.send_message(chat_id, "No encontrado.")
         return
-    name = (c["display_name"] if c else None) or u["first_name"] or "Usuario"
+    name = escape_html((c["display_name"] if c else None) or u["first_name"] or "Usuario")
     is_cre = is_creator(target_id)
     text = f"{'\ud83c\udfa8' if is_cre else '\ud83d\udc64'} <b>{name}</b> {get_badges(u)}\n"
-    if u["username"]: text += f"@{u['username']}\n"
+    if u["username"]: text += f"@{escape_html(u['username'])}\n"
     text += f"Género: {get_gender_text(u)}\n"
     bio = (c["bio"] if c and c["bio"] else u["bio"]) or ""
-    if bio: text += f"\n{bio}\n"
+    if bio: text += f"\n{escape_html(bio)}\n"
     kb = types.InlineKeyboardMarkup()
     if is_cre:
         text += f"\n📸 Contenidos: {content_count} | 👥 {c['total_subscribers'] if c else 0}\n"
         if plans:
             text += "\n<b>Planes:</b>\n"
             for p in plans:
-                text += f"• {p['name']} — {format_price(p['price'])}\n"
+                text += f"• {escape_html(p['name'])} — {format_price(p['price'])}\n"
                 kb.add(types.InlineKeyboardButton(f"💳 {p['name']} {format_price(p['price'])}", callback_data=f"buyplan_{p['id']}"))
         if has_access(viewer_id, target_id):
             text += f"\n{t('has_sub', lang)}"
@@ -546,8 +700,8 @@ def cb_buy_plan(call):
         bot.answer_callback_query(call.id, "No disponible", show_alert=True)
         return
     fee, net = calc_fee(p["price"])
-    text = (f"💳 <b>{p['name']}</b>\n\nPrecio: {format_price(p['price'])}\n"
-            f"{p['description'] or ''}\n\n{get_setting('payment_methods')}\n\nEnvía captura tras pagar.")
+    text = (f"💳 <b>{escape_html(p['name'])}</b>\n\nPrecio: {format_price(p['price'])}\n"
+            f"{escape_html(p['description'])}\n\n{get_setting('payment_methods')}\n\nEnvía captura tras pagar.")
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("📸 Ya pagué", callback_data=f"proofplan_{plan_id}"))
     kb.add(types.InlineKeyboardButton(t("back", lang), callback_data=f"profile_{p['creator_id']}"))
@@ -562,12 +716,12 @@ def cb_proof_plan(call):
     bot.register_next_step_handler(msg, lambda m: process_plan_proof(m, plan_id))
 
 def process_plan_proof(message, plan_id):
-    if not message.photo:
+    if not is_private_chat(message) or not message.photo:
         bot.send_message(message.chat.id, "❌ Envía una foto.")
         return
     file_id = message.photo[-1].file_id
     conn = get_db()
-    p = conn.execute("SELECT * FROM creator_plans WHERE id=?", (plan_id,)).fetchone()
+    p = conn.execute("SELECT * FROM creator_plans WHERE id=? AND active=1", (plan_id,)).fetchone()
     if not p:
         conn.close()
         return
@@ -598,9 +752,10 @@ def cb_req_videocall(call):
     parts = call.data.split("_")
     creator_id, plan_id = int(parts[1]), int(parts[2])
     conn = get_db()
-    p = conn.execute("SELECT * FROM creator_plans WHERE id=?", (plan_id,)).fetchone()
+    p = conn.execute("SELECT * FROM creator_plans WHERE id=? AND creator_id=? AND active=1",
+                      (plan_id, creator_id)).fetchone()
     conn.close()
-    if not p:
+    if not p or p["plan_type"] != "videocall":
         bot.answer_callback_query(call.id, "No disponible", show_alert=True)
         return
     text = (f"📞 <b>Solicitar videollamada</b>\n\nPrecio: {format_price(p['price'])}\n\n"
@@ -620,12 +775,17 @@ def cb_proof_vc(call):
     bot.register_next_step_handler(msg, lambda m: process_vc_proof(m, creator_id, plan_id))
 
 def process_vc_proof(message, creator_id, plan_id):
-    if not message.photo:
+    if not is_private_chat(message) or not message.photo:
         bot.send_message(message.chat.id, "❌ Envía una foto.")
         return
     file_id = message.photo[-1].file_id
     conn = get_db()
-    p = conn.execute("SELECT * FROM creator_plans WHERE id=?", (plan_id,)).fetchone()
+    p = conn.execute("SELECT * FROM creator_plans WHERE id=? AND creator_id=? AND active=1",
+                      (plan_id, creator_id)).fetchone()
+    if not p or p["plan_type"] != "videocall":
+        conn.close()
+        bot.send_message(message.chat.id, "❌ El plan de videollamada ya no está disponible.")
+        return
     fee, net = calc_fee(p["price"])
     cur = conn.cursor()
     cur.execute("""INSERT INTO transactions (user_id, creator_id, type, amount, platform_fee, creator_net,
@@ -633,9 +793,9 @@ def process_vc_proof(message, creator_id, plan_id):
         VALUES (?,?, 'videocall',?,?,?,'pending','manual',?,?,?)""",
                 (message.from_user.id, creator_id, p["price"], fee, net, file_id, plan_id, datetime.now().isoformat()))
     tx_id = cur.lastrowid
-    cur.execute("""INSERT INTO videocalls (user_id, creator_id, amount, status, requested_at)
-        VALUES (?,?,?,'pending_payment',?)""",
-                (message.from_user.id, creator_id, p["price"], datetime.now().isoformat()))
+    cur.execute("""INSERT INTO videocalls (user_id, creator_id, amount, status, requested_at, transaction_id)
+        VALUES (?,?,?,'pending_payment',?,?)""",
+                (message.from_user.id, creator_id, p["price"], datetime.now().isoformat(), tx_id))
     vc_id = cur.lastrowid
     conn.commit()
     conn.close()
@@ -671,7 +831,7 @@ def cb_view_content(call):
         bot.answer_callback_query(call.id, "Sin créditos.", show_alert=True)
         return
     bot.answer_callback_query(call.id)
-    caption = (f"📸 {item['title'] or 'Contenido'}\n{item['description'] or ''}\n\n"
+    caption = (f"📸 {escape_html(item['title'] or 'Contenido')}\n{escape_html(item['description'])}\n\n"
                f"❤️ {item['likes']} 💔 {item['dislikes']} 👁 {item['views']}\n"
                f"<i>🔒 Protegido</i>")
     try:
@@ -742,23 +902,33 @@ def cb_dislike(call):
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("comment_"))
 def cb_comment(call):
     cid = int(call.data.split("_")[1])
+    conn = get_db()
+    item = conn.execute("SELECT creator_id FROM content WHERE id=?", (cid,)).fetchone()
+    conn.close()
+    if not item or not has_access(call.from_user.id, item["creator_id"]):
+        bot.answer_callback_query(call.id, "Necesitas acceso para comentar", show_alert=True)
+        return
     bot.answer_callback_query(call.id)
     msg = bot.send_message(call.message.chat.id, "💬 Escribe tu comentario:")
     bot.register_next_step_handler(msg, lambda m: save_comment(m, cid))
 
 def save_comment(message, content_id):
-    if not message.text: return
+    if not is_private_chat(message) or not message.text: return
     text = message.text[:300]
     conn = get_db()
+    item = conn.execute("SELECT creator_id, title FROM content WHERE id=?", (content_id,)).fetchone()
+    if not item or not has_access(message.from_user.id, item["creator_id"]):
+        conn.close()
+        bot.send_message(message.chat.id, "Necesitas acceso activo para comentar este contenido.")
+        return
     conn.execute("INSERT INTO comments (content_id, user_id, text, created_at) VALUES (?,?,?,?)",
                  (content_id, message.from_user.id, text, datetime.now().isoformat()))
-    item = conn.execute("SELECT creator_id, title FROM content WHERE id=?", (content_id,)).fetchone()
     conn.commit()
     conn.close()
     bot.send_message(message.chat.id, "✅ Comentario publicado.")
     if item:
         try:
-            bot.send_message(item["creator_id"], f"💬 Comentario en «{item['title'] or 'contenido'}»\nDe: {message.from_user.first_name}\n{text}")
+            bot.send_message(item["creator_id"], f"💬 Comentario en «{escape_html(item['title'] or 'contenido')}»\nDe: {escape_html(message.from_user.first_name)}\n{escape_html(text)}")
         except: pass
 
 # ==================== EXPLORAR ====================
@@ -780,7 +950,7 @@ def cb_explore(call):
     kb = types.InlineKeyboardMarkup()
     for c in creators:
         name = c["display_name"] or c["first_name"]
-        text += f"• {name} {get_badges(c)}\n"
+        text += f"• {escape_html(name)} {get_badges(c)}\n"
         kb.add(types.InlineKeyboardButton(f"{name} {get_badges(c)}", callback_data=f"profile_{c['user_id']}"))
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
@@ -833,14 +1003,23 @@ def process_upload_media(message):
     else:
         bot.send_message(message.chat.id, "❌ Envía foto o vídeo.")
         return
-    bot.send_message(message.chat.id, "Título (o /skip):")
-    bot.register_next_step_handler(message, lambda m: save_content(m, file_id, media_type))
+    prompt = bot.send_message(message.chat.id, "Título (o /skip):")
+    bot.register_next_step_handler(prompt, lambda m: save_content(m, file_id, media_type))
 
 def save_content(message, file_id, media_type):
+    if not is_private_chat(message) or not is_creator(message.from_user.id):
+        return
     title = None if message.text == "/skip" else (message.text or "")[:100]
+    prompt = bot.send_message(message.chat.id, "Descripción (o /skip):")
+    bot.register_next_step_handler(prompt, lambda m: persist_content(m, file_id, media_type, title))
+
+def persist_content(message, file_id, media_type, title):
+    if not is_private_chat(message) or not is_creator(message.from_user.id):
+        return
+    description = None if message.text == "/skip" else (message.text or "")[:500]
     conn = get_db()
-    conn.execute("INSERT INTO content (creator_id, title, file_id, media_type, is_premium, created_at) VALUES (?,?,?,?,1,?)",
-                 (message.from_user.id, title, file_id, media_type, datetime.now().isoformat()))
+    conn.execute("INSERT INTO content (creator_id, title, description, file_id, media_type, is_premium, created_at) VALUES (?,?,?,?,?,1,?)",
+                 (message.from_user.id, title, description, file_id, media_type, datetime.now().isoformat()))
     conn.commit()
     conn.close()
     bot.send_message(message.chat.id, f"✅ Publicado ({media_type}). 🔒 Protegido.")
@@ -894,7 +1073,7 @@ def cb_manage_plans(call):
     kb = types.InlineKeyboardMarkup()
     for p in plans:
         status = "✅" if p["active"] else "❌"
-        text += f"{status} {p['name']} — {format_price(p['price'])}\n"
+        text += f"{status} {escape_html(p['name'])} — {format_price(p['price'])}\n"
         kb.add(types.InlineKeyboardButton(f"✏️ {p['name']} {format_price(p['price'])}", callback_data=f"editprice_{p['id']}"))
     kb.add(types.InlineKeyboardButton("➕ Añadir plan", callback_data="add_plan"))
     kb.add(types.InlineKeyboardButton("« Panel", callback_data="creator_panel"))
@@ -913,17 +1092,16 @@ def cb_edit_price(call):
         return
     bot.answer_callback_query(call.id)
     msg = bot.send_message(call.message.chat.id,
-        f"Precio actual de <b>{p['name']}</b>: {format_price(p['price'])}\n\n"
+        f"Precio actual de <b>{escape_html(p['name'])}</b>: {format_price(p['price'])}\n\n"
         f"Escribe el <b>nuevo precio</b> (ej: 15.99):")
     bot.register_next_step_handler(msg, lambda m: save_new_price(m, plan_id))
 
 def save_new_price(message, plan_id):
     if not is_creator(message.from_user.id): return
     try:
-        price = float(message.text.replace(",", ".").strip())
-        if price < 0: raise ValueError
-    except:
-        bot.send_message(message.chat.id, "❌ Precio inválido. Ejemplo: 9.99")
+        price = validate_plan_price(message.text.replace(",", ".").strip())
+    except (AttributeError, TypeError, ValueError) as exc:
+        bot.send_message(message.chat.id, f"❌ {escape_html(exc)}. Ejemplo: 9.99")
         return
     conn = get_db()
     conn.execute("UPDATE creator_plans SET price=? WHERE id=? AND creator_id=?",
@@ -988,7 +1166,7 @@ def cb_creator_vcs(call):
     if not vcs:
         text += "Ninguna aún."
     for v in vcs:
-        text += f"#{v['id']} {v['first_name']} — {v['status']} — {format_price(v['amount'])}\n"
+        text += f"#{v['id']} {escape_html(v['first_name'])} — {v['status']} — {format_price(v['amount'])}\n"
         if v["status"] == "requested":
             kb.add(types.InlineKeyboardButton(f"✅ Aceptar #{v['id']}", callback_data=f"vcaccept_{v['id']}"))
             kb.add(types.InlineKeyboardButton(f"❌ Rechazar #{v['id']}", callback_data=f"vcreject_{v['id']}"))
@@ -1008,7 +1186,12 @@ def cb_vc_accept(call):
         bot.answer_callback_query(call.id, "No disponible", show_alert=True)
         conn.close()
         return
-    conn.execute("UPDATE videocalls SET status='accepted' WHERE id=?", (vc_id,))
+    changed = conn.execute("UPDATE videocalls SET status='accepted' WHERE id=? AND creator_id=? AND status='requested'",
+                           (vc_id, call.from_user.id))
+    if changed.rowcount != 1:
+        conn.close()
+        bot.answer_callback_query(call.id, "Ya procesada", show_alert=True)
+        return
     conn.commit()
     conn.close()
     bot.send_message(vc["user_id"], f"✅ El creador aceptó tu videollamada #{vc_id}.\nCoordina por mensaje privado.")
@@ -1022,10 +1205,12 @@ def cb_vc_reject(call):
     vc_id = int(call.data.split("_")[1])
     conn = get_db()
     vc = conn.execute("SELECT * FROM videocalls WHERE id=? AND creator_id=?", (vc_id, call.from_user.id)).fetchone()
-    if not vc:
+    if not vc or vc["status"] not in ("requested", "accepted"):
         conn.close()
+        bot.answer_callback_query(call.id, "No disponible", show_alert=True)
         return
-    conn.execute("UPDATE videocalls SET status='rejected' WHERE id=?", (vc_id,))
+    conn.execute("UPDATE videocalls SET status='rejected' WHERE id=? AND creator_id=? AND status IN ('requested','accepted')",
+                 (vc_id, call.from_user.id))
     conn.commit()
     conn.close()
     bot.send_message(vc["user_id"], f"❌ Videollamada #{vc_id} rechazada.")
@@ -1038,11 +1223,11 @@ def cb_vc_complete(call):
     if not is_creator(call.from_user.id): return
     vc_id = int(call.data.split("_")[1])
     conn = get_db()
-    conn.execute("UPDATE videocalls SET status='completed', completed_at=? WHERE id=? AND creator_id=?",
-                 (datetime.now().isoformat(), vc_id, call.from_user.id))
+    changed = conn.execute("UPDATE videocalls SET status='completed', completed_at=? WHERE id=? AND creator_id=? AND status='accepted'",
+                           (datetime.now().isoformat(), vc_id, call.from_user.id))
     conn.commit()
     conn.close()
-    bot.answer_callback_query(call.id, "Marcada como completada")
+    bot.answer_callback_query(call.id, "Marcada como completada" if changed.rowcount == 1 else "No disponible")
     call.data = "creator_vcs"
     cb_creator_vcs(call)
 
@@ -1058,8 +1243,14 @@ def cb_approve_tx(call):
         conn.close()
         return
     now = datetime.now()
-    fee = tx["platform_fee"] or 0
-    net = tx["creator_net"] or tx["amount"]
+    fee = tx["platform_fee"] if tx["platform_fee"] is not None else 0
+    net = tx["creator_net"] if tx["creator_net"] is not None else tx["amount"]
+    claimed = conn.execute("UPDATE transactions SET status='approved', reviewed_at=? WHERE id=? AND status='pending'",
+                           (now.isoformat(), tx_id))
+    if claimed.rowcount != 1:
+        conn.close()
+        bot.answer_callback_query(call.id, "Ya procesado", show_alert=True)
+        return
 
     if tx["type"] == "creator_fee":
         conn.execute("UPDATE users SET role='creator', creator_verified=2 WHERE user_id=?", (tx["user_id"],))
@@ -1068,7 +1259,6 @@ def cb_approve_tx(call):
         for ptype, info in PLAN_TYPES.items():
             conn.execute("INSERT INTO creator_plans (creator_id, plan_type, name, price, days, credits, description) VALUES (?,?,?,?,?,?,?)",
                          (tx["user_id"], ptype, info["name"], info["default_price"], info["days"], info["credits"], info["name"]))
-        conn.execute("UPDATE transactions SET status='approved', reviewed_at=? WHERE id=?", (now.isoformat(), tx_id))
         conn.commit()
         conn.close()
         bot.send_message(tx["user_id"], "✅ ¡Eres Creador! Sube contenido y configura precios.")
@@ -1077,13 +1267,26 @@ def cb_approve_tx(call):
 
     # Plan o videollamada
     plan = conn.execute("SELECT * FROM creator_plans WHERE id=?", (tx["plan_id"],)).fetchone() if tx["plan_id"] else None
-    days = plan["days"] if plan else 30
+    if tx["plan_id"] and (not plan or plan["creator_id"] != tx["creator_id"]):
+        conn.rollback()
+        conn.close()
+        bot.answer_callback_query(call.id, "El plan asociado no es válido", show_alert=True)
+        return
+    legacy_reference = tx["reference"] if "reference" in tx.keys() else None
+    legacy_plan_type = legacy_reference if legacy_reference in ("monthly", "quarterly") else None
+    days = plan["days"] if plan else (90 if legacy_plan_type == "quarterly" else 30)
     credits = plan["credits"] if plan else 0
+    granted_plan_type = plan["plan_type"] if plan else (legacy_plan_type or tx["type"])
     end = (now + timedelta(days=days)).isoformat() if days > 0 else now.isoformat()
 
     if tx["type"] == "videocall" or (plan and plan["plan_type"] == "videocall"):
-        conn.execute("UPDATE videocalls SET status='requested' WHERE user_id=? AND creator_id=? AND status='pending_payment'",
-                     (tx["user_id"], tx["creator_id"]))
+        updated = conn.execute("UPDATE videocalls SET status='requested' WHERE transaction_id=? AND status='pending_payment'",
+                               (tx_id,))
+        if updated.rowcount != 1:
+            conn.rollback()
+            conn.close()
+            bot.answer_callback_query(call.id, "No existe la videollamada vinculada", show_alert=True)
+            return
         # Notificar al creador
         try:
             bot.send_message(tx["creator_id"],
@@ -1091,15 +1294,23 @@ def cb_approve_tx(call):
                 f"Ve a Panel Creador → Videollamadas para aceptar.")
         except: pass
     else:
+        if tx["type"] not in ("subscription", "monthly", "quarterly") and not tx["type"].startswith("plan_"):
+            conn.rollback()
+            conn.close()
+            bot.answer_callback_query(call.id, "Tipo de pago no válido", show_alert=True)
+            return
         conn.execute("""INSERT INTO subscriptions
             (user_id, creator_id, plan_id, plan_type, amount, status, start_date, end_date, credits_left, payment_method, created_at)
             VALUES (?,?,?,?,?,'active',?,?,?,?,?)""",
-                     (tx["user_id"], tx["creator_id"], tx["plan_id"], tx["type"], tx["amount"],
+                     (tx["user_id"], tx["creator_id"], tx["plan_id"], granted_plan_type, tx["amount"],
                       now.isoformat(), end, credits, "manual", now.isoformat()))
 
-    conn.execute("UPDATE creators SET total_subscribers=total_subscribers+1, total_earnings=total_earnings+? WHERE user_id=?",
-                 (net, tx["creator_id"]))
-    conn.execute("UPDATE transactions SET status='approved', reviewed_at=? WHERE id=?", (now.isoformat(), tx_id))
+    if tx["type"] != "videocall" and not (plan and plan["plan_type"] == "videocall"):
+        conn.execute("UPDATE creators SET total_subscribers=total_subscribers+1, total_earnings=total_earnings+? WHERE user_id=?",
+                     (net, tx["creator_id"]))
+    else:
+        conn.execute("UPDATE creators SET total_earnings=total_earnings+? WHERE user_id=?",
+                     (net, tx["creator_id"]))
     conn.commit()
     conn.close()
 
@@ -1119,7 +1330,12 @@ def cb_reject_tx(call):
         bot.answer_callback_query(call.id, "Ya procesado", show_alert=True)
         conn.close()
         return
-    conn.execute("UPDATE transactions SET status='rejected', reviewed_at=? WHERE id=?", (datetime.now().isoformat(), tx_id))
+    changed = conn.execute("UPDATE transactions SET status='rejected', reviewed_at=? WHERE id=? AND status='pending'",
+                           (datetime.now().isoformat(), tx_id))
+    if changed.rowcount != 1:
+        conn.close()
+        bot.answer_callback_query(call.id, "Ya procesado", show_alert=True)
+        return
     if tx["type"] == "creator_fee":
         conn.execute("UPDATE users SET creator_verified=0 WHERE user_id=?", (tx["user_id"],))
     conn.commit()
@@ -1145,18 +1361,76 @@ def cb_help(call):
 def cb_account(call):
     user = get_user(call.from_user.id)
     lang = get_lang(call.from_user.id)
+    if not user or is_banned(call.from_user.id):
+        bot.answer_callback_query(call.id, "Usa /start para continuar", show_alert=True)
+        return
     text = (f"👤 <b>Mi perfil</b> {get_badges(user)}\n\n"
             f"ID: <code>{call.from_user.id}</code>\nRol: {user['role'] if user else 'user'}\n"
             f"VIP: {'Sí' if is_vip(call.from_user.id) else 'No'}\n"
             f"Género: {get_gender_text(user)}\n")
     kb = types.InlineKeyboardMarkup()
     if not (user and user["age_verified_real"] == 2):
-        kb.add(types.InlineKeyboardButton(t("request_verif", lang), web_app=types.WebAppInfo(url=WEBAPP_VERIFICATION_URL)))
+        kb.add(types.InlineKeyboardButton(t("request_verif", lang), callback_data="request_real_verification"))
+        kb.add(types.InlineKeyboardButton("Enviar fotos manualmente", callback_data="manual_verification"))
     if user and user["creator_verified"] != 2:
         kb.add(types.InlineKeyboardButton("🎨 Ser Creador ($50)", callback_data="become_creator"))
     kb.add(types.InlineKeyboardButton("Ver perfil público", callback_data=f"profile_{call.from_user.id}"))
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "request_real_verification")
+def cb_request_verification(call):
+    user = get_user(call.from_user.id)
+    if (not is_private_chat(call.message) or not user or is_banned(call.from_user.id)
+            or not user["age_declared"] or not user["terms_accepted"]):
+        bot.answer_callback_query(call.id, "Completa primero /start y acepta los términos", show_alert=True)
+        return
+    if user["age_verified_real"] == 2:
+        bot.answer_callback_query(call.id, "Ya estás verificado", show_alert=True)
+        return
+    if user["age_verified_real"] == 1:
+        bot.answer_callback_query(call.id, "Ya tienes una verificación pendiente", show_alert=True)
+        return
+    if not WEBAPP_VERIFICATION_URL:
+        bot.answer_callback_query(call.id, "Mini App no configurada; usa el envío manual", show_alert=True)
+        return
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    keyboard.add(types.KeyboardButton(
+        "Abrir Mini App de verificación",
+        web_app=types.WebAppInfo(url=WEBAPP_VERIFICATION_URL),
+    ))
+    bot.send_message(call.message.chat.id,
+        "Pulsa el botón para abrir la cámara. La Mini App no sube las fotos; después tendrás que adjuntarlas aquí.",
+        reply_markup=keyboard)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "manual_verification")
+def cb_manual_verification(call):
+    user = get_user(call.from_user.id)
+    if (not is_private_chat(call.message) or not user or is_banned(call.from_user.id)
+            or not user["age_declared"] or not user["terms_accepted"]):
+        bot.answer_callback_query(call.id, "Completa primero /start y acepta los términos", show_alert=True)
+        return
+    if user["age_verified_real"] == 2:
+        bot.answer_callback_query(call.id, "Ya estás verificado", show_alert=True)
+        return
+    conn = get_db()
+    pending = conn.execute("SELECT 1 FROM verifications WHERE user_id=? AND status='pending' LIMIT 1",
+                           (call.from_user.id,)).fetchone()
+    if pending:
+        conn.close()
+        bot.answer_callback_query(call.id, "Ya hay una solicitud pendiente", show_alert=True)
+        return
+    conn.execute("INSERT INTO verifications (user_id,status,source,created_at) VALUES (?,'pending','manual',?)",
+                 (call.from_user.id, datetime.now().isoformat()))
+    conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (call.from_user.id,))
+    conn.commit()
+    conn.close()
+    bot.send_message(call.message.chat.id,
+        "Envía primero una foto del documento y después una selfie sosteniéndolo. "
+        "Las fotos se enviarán al administrador para revisión.",
+        reply_markup=types.ReplyKeyboardRemove())
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda c: c.data == "menu_subs")
@@ -1246,8 +1520,8 @@ def save_fee(message):
     if not is_admin(message.from_user.id): return
     try:
         pct = float(message.text.replace(",", ".").strip())
-        if pct < 0 or pct > 100: raise ValueError
-    except:
+        if not math.isfinite(pct) or pct < 0 or pct > 100: raise ValueError
+    except (AttributeError, TypeError, ValueError):
         bot.send_message(message.chat.id, "❌ Número inválido (0-100).")
         return
     set_setting("platform_fee", str(pct))
@@ -1256,13 +1530,39 @@ def save_fee(message):
 # ==================== VERIFICACIÓN (resumida) ====================
 @bot.message_handler(content_types=["web_app_data"])
 def handle_webapp(message):
+    if not is_private_chat(message) or is_banned(message.from_user.id):
+        return
+    try:
+        raw = message.web_app_data.data
+        if not raw or len(raw) > 4096:
+            return
+        payload = json.loads(raw)
+    except (AttributeError, TypeError, ValueError):
+        return
+    if not isinstance(payload, dict) or payload.get("type") != "verification" or payload.get("status") != "photos_captured":
+        return
+    if payload.get("user_id") not in (None, message.from_user.id):
+        return
+    user = get_user(message.from_user.id)
+    if not user or not user["age_declared"] or not user["terms_accepted"]:
+        bot.send_message(message.chat.id, "Completa primero la declaración de edad y acepta los términos con /start.")
+        return
     conn = get_db()
+    pending = conn.execute("SELECT id FROM verifications WHERE user_id=? AND status='pending' LIMIT 1",
+                           (message.from_user.id,)).fetchone()
+    if pending:
+        conn.close()
+        bot.send_message(message.chat.id, "Ya hay una verificación pendiente. Envía documento y selfie en este chat privado.")
+        return
     conn.execute("INSERT INTO verifications (user_id, status, source, created_at) VALUES (?,'pending','webapp',?)",
                  (message.from_user.id, datetime.now().isoformat()))
     conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (message.from_user.id,))
     conn.commit()
     conn.close()
-    bot.send_message(message.chat.id, "Envía documento + selfie.")
+    bot.send_message(message.chat.id,
+        "La cámara de la Mini App no subió tus fotos. Para completar la solicitud, envía aquí en este chat privado "
+        "primero la foto del documento y después la selfie con el documento. Ambas se enviarán al administrador para revisión.",
+        reply_markup=types.ReplyKeyboardRemove())
 
 @bot.message_handler(content_types=["photo"])
 def handle_photo(message):
@@ -1274,13 +1574,8 @@ def handle_photo(message):
     ver = conn.execute("SELECT * FROM verifications WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 1",
                        (message.from_user.id,)).fetchone()
     if not ver:
-        cur = conn.cursor()
-        cur.execute("INSERT INTO verifications (user_id, doc_photo_id, status, source, created_at) VALUES (?,?, 'pending','manual',?)",
-                    (message.from_user.id, file_id, datetime.now().isoformat()))
-        conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (message.from_user.id,))
-        conn.commit()
         conn.close()
-        bot.send_message(message.chat.id, "Documento OK. Envía selfie.")
+        bot.send_message(message.chat.id, "No tienes una verificación pendiente. Inicia /start y abre la opción de verificación primero.")
         return
     if not ver["doc_photo_id"]:
         conn.execute("UPDATE verifications SET doc_photo_id=? WHERE id=?", (file_id, ver["id"]))
@@ -1306,6 +1601,9 @@ def handle_photo(message):
 def cb_verify(call):
     if not is_admin(call.from_user.id): return
     parts = call.data.split("_")
+    if len(parts) != 3 or parts[1] not in ("male", "female", "reject"):
+        bot.answer_callback_query(call.id, "Acción no válida", show_alert=True)
+        return
     action, ver_id = parts[1], int(parts[2])
     conn = get_db()
     ver = conn.execute("SELECT * FROM verifications WHERE id=?", (ver_id,)).fetchone()
@@ -1341,7 +1639,7 @@ def on_new_member(message):
             continue
         if m.is_bot: continue
         upsert_user(m)
-        bot.send_message(message.chat.id, t("group_welcome", get_lang(tg_user=m), name=m.first_name or "Usuario"))
+        bot.send_message(message.chat.id, t("group_welcome", get_lang(tg_user=m), name=escape_html(m.first_name or "Usuario")))
 
 @bot.message_handler(commands=["ayuda", "help"])
 def cmd_help_g(message):
@@ -1365,13 +1663,13 @@ def cmd_support(message):
         bot.reply_to(message, "/soporte mensaje")
         return
     bot.reply_to(message, "✅ Enviado.")
-    bot.send_message(ADMIN_ID, f"Soporte {message.from_user.id}: {parts[1]}")
+    bot.send_message(ADMIN_ID, f"Soporte {message.from_user.id}: {escape_html(parts[1][:3000])}")
 
 @bot.message_handler(commands=["yo"])
 def cmd_me(message):
     upsert_user(message.from_user)
     u = get_user(message.from_user.id)
-    bot.reply_to(message, f"{message.from_user.first_name} {get_badges(u)}")
+    bot.reply_to(message, f"{escape_html(message.from_user.first_name)} {get_badges(u)}")
 
 @bot.message_handler(commands=["anuncio"])
 def cmd_anuncio(message):
@@ -1395,7 +1693,7 @@ def cmd_promo(message):
     conn.close()
     if not c: return
     set_cooldown(uid, "promo")
-    bot.send_message(message.chat.id, f"🔥 <b>PROMO</b>\n🎨 {c['display_name']}\n{c['bio'] or ''}\n➡️ /start")
+    bot.send_message(message.chat.id, f"🔥 <b>PROMO</b>\n🎨 {escape_html(c['display_name'])}\n{escape_html(c['bio'])}\n➡️ /start")
 
 @bot.message_handler(commands=["invitar"])
 def cmd_invite(message):
@@ -1442,9 +1740,20 @@ def filter_muted(message):
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
 
+def validate_runtime_config():
+    if not TELEGRAM_TOKEN or ":" not in TELEGRAM_TOKEN or TELEGRAM_TOKEN.startswith("PON_AQUI"):
+        raise RuntimeError("Configura TELEGRAM_TOKEN como variable de entorno antes de arrancar.")
+    token_id, separator, token_secret = TELEGRAM_TOKEN.partition(":")
+    if not separator or not token_id.isdigit() or not token_secret:
+        raise RuntimeError("TELEGRAM_TOKEN no tiene el formato esperado.")
+    if ADMIN_ID <= 0:
+        raise RuntimeError("Configura un ADMIN_ID numérico positivo.")
+    if WEBAPP_VERIFICATION_URL and not WEBAPP_VERIFICATION_URL.startswith("https://"):
+        raise RuntimeError("WEBAPP_VERIFICATION_URL debe usar HTTPS.")
+
 if __name__ == "__main__":
+    validate_runtime_config()
     init_db()
-    global group_muted
     group_muted = is_group_muted()
     print("OnlyFans_ManagerBot V9 started")
     print(f"Comisión plataforma: {get_platform_fee_percent()}%")
