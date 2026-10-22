@@ -79,11 +79,56 @@ TEXTS = {
             "❓ <b>Ayuda</b>\n\n"
             "• Todos tienen perfil buscable.\n"
             "• Solo creadores ($50) publican.\n"
-            "• Planes: packs, mensual, videollamada...\n"
-            "• Contenido protegido.\n"
-            "• Likes, dislikes y comentarios.\n"
-            "• La plataforma retiene un % de cada pago."
+            "• Planes: packs, mensual, PPV, videollamada...\n"
+            "• Contenido protegido (protect_content).\n"
+            "• Likes, dislikes, comentarios y favoritos.\n"
+            "• La plataforma retiene un % de cada pago.\n"
+            "• Ajustes: idioma, historial, eliminar datos."
         ),
+        "menu_favs": "⭐ Favoritos",
+        "menu_settings": "⚙️ Ajustes",
+        "locked_preview": "🔒 <b>Contenido exclusivo</b>\nSuscríbete o desbloquea PPV para verlo.",
+        "fav_added": "⭐ Añadido a favoritos",
+        "fav_removed": "☆ Quitado de favoritos",
+        "blocked": "🚫 Usuario bloqueado. No verás su contenido.",
+        "unblocked": "✅ Usuario desbloqueado.",
+        "delete_data_confirm": "⚠️ Esto borra tu cuenta, suscripciones y favoritos. ¿Confirmas?",
+        "delete_data_done": "✅ Datos eliminados. Usa /start para volver a registrarte.",
+        "msg_creator_prompt": "✉️ Escribe el mensaje para el creador (máx. 500 caracteres):",
+        "msg_sent": "✅ Mensaje enviado al creador.",
+        "payment_test_mode": "🧪 <b>Modo prueba de pagos</b>: los accesos solo se activan tras aprobación manual del admin.",
+        "no_favs": "Sin favoritos aún. Márcalos desde el perfil del creador.",
+        "settings_title": "⚙️ <b>Ajustes</b>",
+        "lang_set": "✅ Idioma actualizado.",
+        "pay_history": "💳 <b>Historial de pagos</b>",
+        "empty_history": "Sin pagos registrados.",
+        "login_title": "👋 <b>Bienvenido</b>",
+        "login_text": "Plataforma de creadores y suscripciones <b>dentro de Telegram</b>.\n\nPara continuar inicia tu cuenta. Telegram ya te autentica; solo configuramos tu perfil.",
+        "login_btn": "🚀 Iniciar / Entrar",
+        "onboard_name": "📝 <b>Paso 1/6 — Nombre visible</b>\nEscribe el nombre que verán los demás (2-40 caracteres):",
+        "onboard_bio": "📄 <b>Paso 2/6 — Biografía</b>\nCuéntanos algo sobre ti (o escribe <code>skip</code> para omitir):",
+        "onboard_photo": "📷 <b>Paso 3/3 — Foto de perfil</b>\nEnvía una <b>foto</b> o pulsa omitir.",
+        "onboard_skip_photo": "Omitir foto",
+        "onboard_done": "✅ <b>Perfil listo</b>\nYa puedes explorar creadores, suscribirte y gestionar tu cuenta.",
+        "profile_incomplete": "Completa tu perfil antes de continuar.",
+        "edit_profile": "✏️ Editar perfil",
+        "set_name": "📝 Cambiar nombre",
+        "set_bio": "📄 Cambiar bio",
+        "set_photo": "📷 Cambiar foto",
+        "name_saved": "✅ Nombre guardado.",
+        "bio_saved": "✅ Bio guardada.",
+        "photo_saved": "✅ Foto de perfil guardada.",
+        "onboard_location": "📍 <b>Paso 3/6 — Ubicación</b>\nCiudad/país (o escribe <code>skip</code>):",
+        "onboard_links": "🔗 <b>Paso 4/6 — Enlaces</b>\nEnvía tu web o redes en una línea.\nEjemplo: <code>https://site.com | @instagram | @x | @tiktok</code>\nO escribe <code>skip</code>.",
+        "onboard_photo_req": "📷 <b>Paso 5/6 — Foto de perfil (obligatoria)</b>\nEnvía una <b>foto</b>. Sin foto no puedes continuar.",
+        "onboard_cats": "🏷️ <b>Paso 6/6 — Categorías</b>\nElige hasta 3 (puedes cambiar después):",
+        "location_saved": "✅ Ubicación guardada.",
+        "links_saved": "✅ Enlaces guardados.",
+        "cats_saved": "✅ Categorías guardadas.",
+        "photo_required": "📷 La foto de perfil es obligatoria. Envía una imagen.",
+        "set_location": "📍 Ubicación",
+        "set_links": "🔗 Enlaces / redes",
+        "set_cats": "🏷️ Categorías",
     },
     "en": {
         "welcome": "💖 <b>Welcome, {name}</b>\n\nExclusive content only inside the bot.",
@@ -119,7 +164,51 @@ TEXTS = {
         "only_vip": "👑 VIP only.",
         "only_admin": "🔒 Admin only.",
         "only_creator": "🎨 Creators only.",
-        "help_text": "Help: profiles, creators, plans, protected content, likes.",
+        "help_text": "Help: profiles, creators, plans, PPV, protected content, favorites, settings.",
+        "menu_favs": "⭐ Favorites",
+        "menu_settings": "⚙️ Settings",
+        "locked_preview": "🔒 <b>Exclusive content</b>\nSubscribe or unlock PPV to view.",
+        "fav_added": "⭐ Added to favorites",
+        "fav_removed": "☆ Removed from favorites",
+        "blocked": "🚫 User blocked.",
+        "unblocked": "✅ User unblocked.",
+        "delete_data_confirm": "⚠️ This deletes your account, subscriptions and favorites. Confirm?",
+        "delete_data_done": "✅ Data deleted. Use /start to register again.",
+        "msg_creator_prompt": "✉️ Message for the creator (max 500 chars):",
+        "msg_sent": "✅ Message sent to creator.",
+        "payment_test_mode": "🧪 <b>Payment test mode</b>: access only after manual admin approval.",
+        "no_favs": "No favorites yet.",
+        "settings_title": "⚙️ <b>Settings</b>",
+        "lang_set": "✅ Language updated.",
+        "pay_history": "💳 <b>Payment history</b>",
+        "empty_history": "No payments yet.",
+        "login_title": "👋 <b>Welcome</b>",
+        "login_text": "Creator subscription platform <b>inside Telegram</b>.\n\nContinue to set up your account. Telegram already authenticates you.",
+        "login_btn": "🚀 Sign in",
+        "onboard_name": "📝 <b>Step 1/6 — Display name</b>\nType the name others will see (2-40 chars):",
+        "onboard_bio": "📄 <b>Step 2/6 — Bio</b>\nTell something about you (or type <code>skip</code>):",
+        "onboard_photo": "📷 <b>Step 3/3 — Profile photo</b>\nSend a <b>photo</b> or skip.",
+        "onboard_skip_photo": "Skip photo",
+        "onboard_done": "✅ <b>Profile ready</b>\nYou can explore creators and manage your account.",
+        "profile_incomplete": "Complete your profile first.",
+        "edit_profile": "✏️ Edit profile",
+        "set_name": "📝 Change name",
+        "set_bio": "📄 Change bio",
+        "set_photo": "📷 Change photo",
+        "name_saved": "✅ Name saved.",
+        "bio_saved": "✅ Bio saved.",
+        "photo_saved": "✅ Profile photo saved.",
+        "onboard_location": "📍 <b>Step 3/6 — Location</b>\nCity/country (or type <code>skip</code>):",
+        "onboard_links": "🔗 <b>Step 4/6 — Links</b>\nSend website or socials in one line.\nExample: <code>https://site.com | @instagram | @x | @tiktok</code>\nOr type <code>skip</code>.",
+        "onboard_photo_req": "📷 <b>Step 5/6 — Profile photo (required)</b>\nSend a <b>photo</b>. You cannot continue without one.",
+        "onboard_cats": "🏷️ <b>Step 6/6 — Categories</b>\nPick up to 3 (you can change later):",
+        "location_saved": "✅ Location saved.",
+        "links_saved": "✅ Links saved.",
+        "cats_saved": "✅ Categories saved.",
+        "photo_required": "📷 Profile photo is required. Send an image.",
+        "set_location": "📍 Location",
+        "set_links": "🔗 Links / socials",
+        "set_cats": "🏷️ Categories",
     }
 }
 
@@ -196,17 +285,42 @@ def init_db():
     c.execute("""CREATE TABLE IF NOT EXISTS cooldowns (
         user_id INTEGER, command TEXT, last_used TEXT, PRIMARY KEY (user_id, command))""")
     c.execute("""CREATE TABLE IF NOT EXISTS group_settings (key TEXT PRIMARY KEY, value TEXT)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS favorites (
+        user_id INTEGER, creator_id INTEGER, created_at TEXT,
+        PRIMARY KEY (user_id, creator_id))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS unlocked_content (
+        user_id INTEGER, content_id INTEGER, subscription_id INTEGER,
+        unlocked_at TEXT, PRIMARY KEY (user_id, content_id))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS blocks (
+        user_id INTEGER, blocked_id INTEGER, created_at TEXT,
+        PRIMARY KEY (user_id, blocked_id))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, emoji TEXT DEFAULT '')""")
+    c.execute("""CREATE TABLE IF NOT EXISTS creator_categories (
+        creator_id INTEGER, category_id INTEGER,
+        PRIMARY KEY (creator_id, category_id))""")
+    c.execute("""CREATE TABLE IF NOT EXISTS creator_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, from_id INTEGER, to_id INTEGER,
+        text TEXT, created_at TEXT)""")
 
     # The bot has been deployed with earlier schemas. Add new columns in-place
     # before handlers use them; never delete or recreate a user's database.
     migrations = {
-        "users": {"bio": "TEXT DEFAULT ''"},
+        "users": {
+            "bio": "TEXT DEFAULT ''", "notify_enabled": "INTEGER DEFAULT 1",
+            "display_name": "TEXT", "profile_photo_id": "TEXT",
+            "profile_complete": "INTEGER DEFAULT 0", "onboard_step": "TEXT DEFAULT ''",
+            "location": "TEXT DEFAULT ''", "website": "TEXT DEFAULT ''",
+            "social_ig": "TEXT DEFAULT ''", "social_x": "TEXT DEFAULT ''",
+            "social_tiktok": "TEXT DEFAULT ''",
+        },
         "subscriptions": {
             "plan_id": "INTEGER", "plan_type": "TEXT", "credits_left": "INTEGER DEFAULT 0",
         },
         "content": {
             "file_id": "TEXT", "media_type": "TEXT DEFAULT 'photo'",
             "likes": "INTEGER DEFAULT 0", "dislikes": "INTEGER DEFAULT 0",
+            "ppv_price": "REAL DEFAULT 0", "is_free": "INTEGER DEFAULT 0",
         },
         "transactions": {
             "platform_fee": "REAL DEFAULT 0", "creator_net": "REAL DEFAULT 0",
@@ -298,8 +412,16 @@ def init_db():
     for k, v in defaults.items():
         if not c.execute("SELECT 1 FROM settings WHERE key=?", (k,)).fetchone():
             c.execute("INSERT INTO settings VALUES (?,?)", (k, v))
+
+    for pay_key in ("pay_zelle", "pay_mexico", "pay_oxxo", "pay_euros", "pay_mobile", "pay_other"):
+        if not c.execute("SELECT 1 FROM settings WHERE key=?", (pay_key,)).fetchone():
+            c.execute("INSERT INTO settings VALUES (?,?)", (pay_key, "—"))
+
     if not c.execute("SELECT 1 FROM group_settings WHERE key='muted'").fetchone():
         c.execute("INSERT INTO group_settings VALUES ('muted','0')")
+    for cat_name, cat_emoji in [("Fitness", "💪"), ("Lifestyle", "✨"), ("Arte", "🎨"), ("Gaming", "🎮"), ("Adulto", "🔥")]:
+        if not c.execute("SELECT 1 FROM categories WHERE name=?", (cat_name,)).fetchone():
+            c.execute("INSERT INTO categories (name, emoji) VALUES (?,?)", (cat_name, cat_emoji))
     conn.commit()
     conn.close()
     ensure_admin()
@@ -335,9 +457,9 @@ def ensure_admin():
     conn = get_db()
     now = datetime.now().isoformat()
     conn.execute("""INSERT OR IGNORE INTO users
-        (user_id, role, age_declared, terms_accepted, age_verified_real, gender_verified, creator_verified, language, joined_at, last_active)
-        VALUES (?, 'admin', 1, 1, 2, 1, 2, 'es', ?, ?)""", (ADMIN_ID, now, now))
-    conn.execute("UPDATE users SET role='admin', age_declared=1, terms_accepted=1, age_verified_real=2, gender_verified=1, creator_verified=2 WHERE user_id=?", (ADMIN_ID,))
+        (user_id, role, age_declared, terms_accepted, age_verified_real, gender_verified, creator_verified, language, profile_complete, joined_at, last_active)
+        VALUES (?, 'admin', 1, 1, 2, 1, 2, 'es', 1, ?, ?)""", (ADMIN_ID, now, now))
+    conn.execute("UPDATE users SET role='admin', age_declared=1, terms_accepted=1, age_verified_real=2, gender_verified=1, creator_verified=2, profile_complete=1 WHERE user_id=?", (ADMIN_ID,))
     conn.execute("INSERT OR IGNORE INTO creators (user_id, display_name, bio, created_at) VALUES (?, 'Admin Principal', 'Creador principal', ?)", (ADMIN_ID, now))
     if not conn.execute("SELECT 1 FROM creator_plans WHERE creator_id=?", (ADMIN_ID,)).fetchone():
         for ptype, info in PLAN_TYPES.items():
@@ -438,29 +560,123 @@ def is_vip(uid):
     return bool(row)
 def format_price(p): return f"${p:.2f}"
 
-def has_access(user_id, creator_id):
-    if is_admin(user_id): return True
-    if is_banned(user_id): return False
+def get_active_subscriptions(user_id, creator_id):
+    """Todas las suscripciones activas usuario→creador (packs + tiempo)."""
+    if is_banned(user_id):
+        return []
     conn = get_db()
-    row = conn.execute("""SELECT 1 FROM subscriptions WHERE user_id=? AND creator_id=? AND status='active'
-        AND (end_date > ? OR credits_left > 0)""", (user_id, creator_id, datetime.now().isoformat())).fetchone()
+    rows = conn.execute(
+        """SELECT * FROM subscriptions WHERE user_id=? AND creator_id=? AND status='active'
+           AND (end_date > ? OR IFNULL(credits_left,0) > 0) ORDER BY id DESC""",
+        (user_id, creator_id, datetime.now().isoformat()),
+    ).fetchall()
+    conn.close()
+    return list(rows)
+
+def has_unlimited_access(user_id, creator_id):
+    """Plan mensual/trimestral o admin: acceso a TODO el feed."""
+    if is_admin(user_id):
+        return True
+    for sub in get_active_subscriptions(user_id, creator_id):
+        ptype = (sub["plan_type"] or "") if "plan_type" in sub.keys() else ""
+        # Unlimited if time-based plan still valid (days > 0 plans)
+        if ptype in ("monthly", "quarterly") or (
+            sub["end_date"] and sub["end_date"] > datetime.now().isoformat()
+            and not (sub["credits_left"] and sub["credits_left"] > 0 and ptype.startswith("pack"))
+        ):
+            # Time window active and not a pure credit pack
+            if ptype in ("monthly", "quarterly"):
+                return True
+            if sub["end_date"] and sub["end_date"] > datetime.now().isoformat() and ptype not in (
+                "pack3", "pack10", "videocall"
+            ) and not (ptype or "").startswith("pack"):
+                return True
+    return False
+
+def get_pack_credits(user_id, creator_id):
+    """Créditos restantes de packs (solo packs, no mensuales)."""
+    total = 0
+    for sub in get_active_subscriptions(user_id, creator_id):
+        ptype = (sub["plan_type"] or "") if "plan_type" in sub.keys() else ""
+        if ptype.startswith("pack") or ptype in ("pack3", "pack10"):
+            total += int(sub["credits_left"] or 0)
+    return total
+
+def has_access(user_id, creator_id):
+    if is_admin(user_id):
+        return True
+    if is_banned(user_id):
+        return False
+    if has_unlimited_access(user_id, creator_id):
+        return True
+    return get_pack_credits(user_id, creator_id) > 0 or _has_any_unlocked(user_id, creator_id)
+
+def _has_any_unlocked(user_id, creator_id):
+    conn = get_db()
+    row = conn.execute(
+        """SELECT 1 FROM unlocked_content u
+           JOIN content c ON c.id=u.content_id
+           WHERE u.user_id=? AND c.creator_id=? LIMIT 1""",
+        (user_id, creator_id),
+    ).fetchone()
     conn.close()
     return bool(row)
 
-def consume_credit(user_id, creator_id):
-    if is_admin(user_id): return True
+def is_content_unlocked(user_id, content_id):
+    if is_admin(user_id):
+        return True
     conn = get_db()
-    row = conn.execute("""SELECT * FROM subscriptions WHERE user_id=? AND creator_id=? AND status='active'
-        AND (end_date > ? OR credits_left > 0) ORDER BY id DESC LIMIT 1""",
-                       (user_id, creator_id, datetime.now().isoformat())).fetchone()
-    if not row:
+    row = conn.execute(
+        "SELECT 1 FROM unlocked_content WHERE user_id=? AND content_id=?",
+        (user_id, content_id),
+    ).fetchone()
+    if row:
         conn.close()
-        return False
-    if row["credits_left"] and row["credits_left"] > 0:
-        conn.execute("UPDATE subscriptions SET credits_left = credits_left - 1 WHERE id=?", (row["id"],))
-        conn.commit()
+        return True
+    # Check if content belongs to creator with unlimited sub
+    c = conn.execute("SELECT creator_id, is_free FROM content WHERE id=?", (content_id,)).fetchone()
     conn.close()
-    return True
+    if not c:
+        return False
+    if c["is_free"]:
+        return True
+    return has_unlimited_access(user_id, c["creator_id"])
+
+def unlock_content_with_credit(user_id, content_id, creator_id):
+    """Gasta 1 crédito de pack y marca el post como desbloqueado. Mensual no gasta."""
+    if is_admin(user_id) or has_unlimited_access(user_id, creator_id):
+        return True, "unlimited"
+    if is_content_unlocked(user_id, content_id):
+        return True, "already"
+    conn = get_db()
+    sub = conn.execute(
+        """SELECT * FROM subscriptions WHERE user_id=? AND creator_id=? AND status='active'
+           AND IFNULL(credits_left,0) > 0
+           AND (plan_type LIKE 'pack%' OR plan_type IN ('pack3','pack10'))
+           ORDER BY id DESC LIMIT 1""",
+        (user_id, creator_id),
+    ).fetchone()
+    if not sub:
+        conn.close()
+        return False, "no_credits"
+    conn.execute(
+        "UPDATE subscriptions SET credits_left = credits_left - 1 WHERE id=? AND credits_left > 0",
+        (sub["id"],),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO unlocked_content (user_id, content_id, subscription_id, unlocked_at) VALUES (?,?,?,?)",
+        (user_id, content_id, sub["id"], datetime.now().isoformat()),
+    )
+    conn.commit()
+    left = conn.execute("SELECT credits_left FROM subscriptions WHERE id=?", (sub["id"],)).fetchone()
+    conn.close()
+    return True, f"credits:{(left['credits_left'] if left else 0)}"
+
+def consume_credit(user_id, creator_id):
+    """Compat: True si puede ver algo (ilimitado o tiene créditos)."""
+    if is_admin(user_id) or has_unlimited_access(user_id, creator_id):
+        return True
+    return get_pack_credits(user_id, creator_id) > 0
 
 def get_badges(user):
     if not user: return ""
@@ -493,13 +709,96 @@ def set_cooldown(user_id, command):
     conn.close()
 def is_group_muted(): return get_group_setting("muted") == "1"
 
+def build_payment_methods_text():
+    parts = [
+        ("🇺🇸 Zelle", get_setting("pay_zelle") or "—"),
+        ("🇲🇽 México (banco/CLABE)", get_setting("pay_mexico") or "—"),
+        ("🏪 OXXO", get_setting("pay_oxxo") or "—"),
+        ("🇪🇺 Euros", get_setting("pay_euros") or "—"),
+        ("📱 Saldo móvil", get_setting("pay_mobile") or "—"),
+        ("➕ Otro", get_setting("pay_other") or "—"),
+    ]
+    lines = ["💳 <b>Formas de pago</b> (configuradas por el admin):", ""]
+    for label, val in parts:
+        lines.append(f"• <b>{label}</b>: {escape_html(val)}")
+    lines.append("")
+    lines.append("<i>Modo revisión manual: el acceso se activa cuando el admin aprueba la captura.</i>")
+    lines.append("<i>Después de pagar, usa «Ya pagué» y envía la captura.</i>")
+    return "\n".join(lines)
+
+def refresh_payment_methods_setting():
+    set_setting("payment_methods", build_payment_methods_text())
+
+def main_reply_keyboard(lang="es"):
+    kb = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=3)
+    kb.row(types.KeyboardButton("🔍 Explorar"), types.KeyboardButton("🔎 Buscar"), types.KeyboardButton("⭐ Favoritos"))
+    kb.row(types.KeyboardButton("📋 Mis planes"), types.KeyboardButton("👤 Mi perfil"), types.KeyboardButton("⚙️ Ajustes"))
+    kb.row(types.KeyboardButton("❓ Ayuda"), types.KeyboardButton("🏠 Menú"))
+    return kb
+
+
+
+def safe_answer(call, *args, **kwargs):
+    try:
+        if getattr(call, "id", None) and call.id != "rk":
+            bot.answer_callback_query(call.id, *args, **kwargs)
+    except Exception:
+        pass
+
+def profile_is_complete(user):
+
+    if not user:
+        return False
+    try:
+        return int(user["profile_complete"] or 0) == 1
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def is_blocked(viewer_id, target_id):
+    if not viewer_id or not target_id: return False
+    conn = get_db()
+    row = conn.execute("SELECT 1 FROM blocks WHERE user_id=? AND blocked_id=?",
+                       (viewer_id, target_id)).fetchone()
+    conn.close()
+    return bool(row)
+
+def is_favorite(user_id, creator_id):
+    conn = get_db()
+    row = conn.execute("SELECT 1 FROM favorites WHERE user_id=? AND creator_id=?",
+                       (user_id, creator_id)).fetchone()
+    conn.close()
+    return bool(row)
+
+def toggle_favorite(user_id, creator_id):
+    conn = get_db()
+    if conn.execute("SELECT 1 FROM favorites WHERE user_id=? AND creator_id=?",
+                    (user_id, creator_id)).fetchone():
+        conn.execute("DELETE FROM favorites WHERE user_id=? AND creator_id=?", (user_id, creator_id))
+        conn.commit(); conn.close()
+        return False
+    conn.execute("INSERT INTO favorites (user_id, creator_id, created_at) VALUES (?,?,?)",
+                 (user_id, creator_id, datetime.now().isoformat()))
+    conn.commit(); conn.close()
+    return True
+
+def get_creator_categories(creator_id):
+    conn = get_db()
+    rows = conn.execute("""SELECT c.name, c.emoji FROM categories c
+        JOIN creator_categories cc ON cc.category_id=c.id WHERE cc.creator_id=?""",
+                        (creator_id,)).fetchall()
+    conn.close()
+    return rows
+
 # ==================== MENÚ ====================
 def main_menu_kb(user_id, lang):
     kb = types.InlineKeyboardMarkup(row_width=2)
     kb.add(types.InlineKeyboardButton(t("menu_explore", lang), callback_data="menu_explore"),
            types.InlineKeyboardButton(t("menu_search", lang), callback_data="menu_search"))
     kb.add(types.InlineKeyboardButton(t("menu_subs", lang), callback_data="menu_subs"),
-           types.InlineKeyboardButton(t("menu_account", lang), callback_data="menu_account"))
+           types.InlineKeyboardButton(t("menu_favs", lang), callback_data="menu_favs"))
+    kb.add(types.InlineKeyboardButton(t("menu_account", lang), callback_data="menu_account"),
+           types.InlineKeyboardButton(t("menu_settings", lang), callback_data="menu_settings"))
     kb.add(types.InlineKeyboardButton(t("menu_help", lang), callback_data="menu_help"))
     if is_creator(user_id):
         kb.add(types.InlineKeyboardButton(t("menu_creator", lang), callback_data="creator_panel"))
@@ -510,14 +809,22 @@ def main_menu_kb(user_id, lang):
 def send_main_menu(chat_id, user_id, message_id=None, lang=None):
     user = get_user(user_id)
     lang = lang or (user["language"] if user else "es")
-    text = t("welcome", lang, name=escape_html(user["first_name"] if user else "User"))
+    if user and not is_admin(user_id) and (not user["age_declared"] or not user["terms_accepted"] or not profile_is_complete(user)):
+        show_login(chat_id, lang, None)
+        return
+    dname = (user["display_name"] if user and user["display_name"] else None) or (user["first_name"] if user else "User")
+    text = t("welcome", lang, name=escape_html(dname))
     kb = main_menu_kb(user_id, lang)
     if message_id:
         try:
             bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
+            # Keep quick-access reply keyboard visible
+            bot.send_message(chat_id, "⌨️ Acceso rápido abajo", reply_markup=main_reply_keyboard(lang))
             return
-        except: pass
+        except Exception:
+            pass
     bot.send_message(chat_id, text, reply_markup=kb)
+    bot.send_message(chat_id, "⌨️ Usa el teclado inferior para acceso rápido", reply_markup=main_reply_keyboard(lang))
 
 # ==================== START ====================
 @bot.message_handler(commands=["start"])
@@ -537,23 +844,75 @@ def cmd_start(message):
             referral_creator_id = None
     upsert_user(message.from_user)
     user = get_user(message.from_user.id)
-    lang = user["language"] or get_lang(tg_user=message.from_user)
-    if not user["age_declared"]:
-        ask_age(message.chat.id, lang)
-        return
-    if not user["terms_accepted"]:
-        ask_terms(message.chat.id, lang)
-        return
+    lang = (user["language"] if user else None) or get_lang(tg_user=message.from_user)
+    # Save pending referral until onboarding ends
     if referral_creator_id:
-        show_profile(message.chat.id, message.from_user.id, referral_creator_id)
+        conn = get_db()
+        conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                     (f"ref_{message.from_user.id}", str(referral_creator_id)))
+        conn.commit()
+        conn.close()
+    # Gate: login → age → terms → profile setup → menu
+    if not user or not user["age_declared"] or not user["terms_accepted"] or not profile_is_complete(user):
+        show_login(message.chat.id, lang, message.from_user)
         return
+    ref = get_setting(f"ref_{message.from_user.id}")
+    if ref:
+        try:
+            show_profile(message.chat.id, message.from_user.id, int(ref))
+            set_setting(f"ref_{message.from_user.id}", "")
+            return
+        except Exception:
+            pass
     send_main_menu(message.chat.id, message.from_user.id, lang=lang)
 
-def ask_age(chat_id, lang="es"):
+def show_login(chat_id, lang, tg_user=None):
+    """Pantalla tipo login: Telegram ya autentica; el usuario confirma y configura perfil."""
+    name = escape_html(getattr(tg_user, "first_name", None) or "Usuario")
+    text = (
+        f"{t('login_title', lang)}\n\n"
+        f"{t('login_text', lang)}\n\n"
+        f"👤 Sesión: <b>{name}</b>"
+    )
+    if tg_user and getattr(tg_user, "username", None):
+        text += f" (@{escape_html(tg_user.username)})"
+    text += f"\n🆔 <code>{getattr(tg_user, 'id', '')}</code>"
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton(t("login_btn", lang), callback_data="login_continue"))
+    bot.send_message(chat_id, text, reply_markup=kb)
+
+@bot.callback_query_handler(func=lambda c: c.data == "login_continue")
+def cb_login_continue(call):
+    if not is_private_chat(call.message):
+        bot.answer_callback_query(call.id, t("use_private", get_lang(tg_user=call.from_user)), show_alert=True)
+        return
+    upsert_user(call.from_user)
+    user = get_user(call.from_user.id)
+    lang = (user["language"] if user else None) or get_lang(tg_user=call.from_user)
+    bot.answer_callback_query(call.id)
+    if not user["age_declared"]:
+        ask_age(call.message.chat.id, lang, call.message.message_id)
+        return
+    if not user["terms_accepted"]:
+        ask_terms(call.message.chat.id, lang, call.message.message_id)
+        return
+    if not profile_is_complete(user):
+        start_profile_setup(call.message.chat.id, call.from_user.id, lang, call.message.message_id)
+        return
+    send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
+
+def ask_age(chat_id, lang="es", message_id=None):
     kb = types.InlineKeyboardMarkup()
     kb.row(types.InlineKeyboardButton(t("age_yes", lang), callback_data="age_yes"),
            types.InlineKeyboardButton(t("age_no", lang), callback_data="age_no"))
-    bot.send_message(chat_id, f"{t('age_title', lang)}\n\n{t('age_text', lang)}", reply_markup=kb)
+    text = f"{t('age_title', lang)}\n\n{t('age_text', lang)}"
+    if message_id:
+        try:
+            bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
+            return
+        except Exception:
+            pass
+    bot.send_message(chat_id, text, reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data in ("age_yes", "age_no"))
 def cb_age(call):
@@ -601,7 +960,334 @@ def cb_terms(call):
     conn.commit()
     conn.close()
     bot.answer_callback_query(call.id)
-    send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
+    user = get_user(call.from_user.id)
+    if not profile_is_complete(user):
+        start_profile_setup(call.message.chat.id, call.from_user.id, lang, call.message.message_id)
+    else:
+        send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
+
+
+# ==================== ONBOARDING PERFIL ====================
+def _parse_links_line(text):
+    """Parse 'url | @ig | @x | @tiktok' or free text into fields."""
+    website = social_ig = social_x = social_tiktok = ""
+    raw = (text or "").strip()
+    if not raw or raw.lower() in ("skip", "omitir", "pasar", "-"):
+        return website, social_ig, social_x, social_tiktok
+    parts = [p.strip() for p in raw.replace(",", "|").split("|") if p.strip()]
+    for p in parts:
+        low = p.lower()
+        if low.startswith("http://") or low.startswith("https://"):
+            website = p[:200]
+        elif "instagram" in low or low.startswith("@") and "ig" in low:
+            social_ig = p.lstrip("@")[:80]
+        elif low.startswith("tiktok.com") or "tiktok" in low:
+            social_tiktok = p.lstrip("@")[:80]
+        elif low.startswith("x.com") or low.startswith("twitter.com") or low.startswith("@"):
+            # first bare @ goes to X if IG empty later reassigned heuristically
+            if not social_x:
+                social_x = p.lstrip("@")[:80]
+            elif not social_ig:
+                social_ig = p.lstrip("@")[:80]
+            else:
+                social_tiktok = social_tiktok or p.lstrip("@")[:80]
+        else:
+            if not website and "." in p:
+                website = p[:200]
+            elif not social_ig:
+                social_ig = p.lstrip("@")[:80]
+            elif not social_x:
+                social_x = p.lstrip("@")[:80]
+            else:
+                social_tiktok = p.lstrip("@")[:80]
+    return website, social_ig, social_x, social_tiktok
+
+
+def start_profile_setup(chat_id, user_id, lang="es", message_id=None):
+    conn = get_db()
+    conn.execute("UPDATE users SET onboard_step='name' WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    text = t("onboard_name", lang)
+    if message_id:
+        try:
+            bot.edit_message_text(text, chat_id, message_id)
+        except Exception:
+            bot.send_message(chat_id, text)
+    else:
+        bot.send_message(chat_id, text)
+    msg = bot.send_message(chat_id, "👇")
+    bot.register_next_step_handler(msg, process_onboard_name)
+
+
+def process_onboard_name(message):
+    if not is_private_chat(message):
+        return
+    lang = get_lang(message.from_user.id)
+    name = (message.text or "").strip()
+    if name.startswith("/"):
+        bot.send_message(message.chat.id, t("onboard_name", lang))
+        bot.register_next_step_handler(message, process_onboard_name)
+        return
+    if len(name) < 2 or len(name) > 40:
+        bot.send_message(message.chat.id, "Nombre entre 2 y 40 caracteres.")
+        bot.register_next_step_handler(message, process_onboard_name)
+        return
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET display_name=?, first_name=COALESCE(first_name, ?), onboard_step='bio' WHERE user_id=?",
+        (name, name, message.from_user.id),
+    )
+    conn.execute("UPDATE creators SET display_name=? WHERE user_id=?", (name, message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("name_saved", lang))
+    msg = bot.send_message(message.chat.id, t("onboard_bio", lang))
+    bot.register_next_step_handler(msg, process_onboard_bio)
+
+
+def process_onboard_bio(message):
+    if not is_private_chat(message):
+        return
+    lang = get_lang(message.from_user.id)
+    bio = (message.text or "").strip()
+    if bio.lower() in ("skip", "omitir", "pasar", "-"):
+        bio = ""
+    else:
+        bio = bio[:300]
+    conn = get_db()
+    conn.execute("UPDATE users SET bio=?, onboard_step='location' WHERE user_id=?", (bio, message.from_user.id))
+    conn.execute("UPDATE creators SET bio=? WHERE user_id=?", (bio, message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("bio_saved", lang))
+    msg = bot.send_message(message.chat.id, t("onboard_location", lang))
+    bot.register_next_step_handler(msg, process_onboard_location)
+
+
+def process_onboard_location(message):
+    if not is_private_chat(message):
+        return
+    lang = get_lang(message.from_user.id)
+    loc = (message.text or "").strip()
+    if loc.lower() in ("skip", "omitir", "pasar", "-"):
+        loc = ""
+    else:
+        loc = loc[:80]
+    conn = get_db()
+    conn.execute("UPDATE users SET location=?, onboard_step='links' WHERE user_id=?", (loc, message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("location_saved", lang))
+    msg = bot.send_message(message.chat.id, t("onboard_links", lang))
+    bot.register_next_step_handler(msg, process_onboard_links)
+
+
+def process_onboard_links(message):
+    if not is_private_chat(message):
+        return
+    lang = get_lang(message.from_user.id)
+    website, ig, x, tt = _parse_links_line(message.text)
+    conn = get_db()
+    conn.execute(
+        """UPDATE users SET website=?, social_ig=?, social_x=?, social_tiktok=?, onboard_step='photo'
+           WHERE user_id=?""",
+        (website, ig, x, tt, message.from_user.id),
+    )
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("links_saved", lang))
+    msg = bot.send_message(message.chat.id, t("onboard_photo_req", lang))
+    bot.register_next_step_handler(msg, process_onboard_photo)
+
+
+def process_onboard_photo(message):
+    if not is_private_chat(message):
+        return
+    lang = get_lang(message.from_user.id)
+    user = get_user(message.from_user.id)
+    if not user:
+        return
+    step = ""
+    try:
+        step = user["onboard_step"] or ""
+    except Exception:
+        step = ""
+    if step not in ("photo", "done") and step != "photo":
+        # still accept if mid-flow
+        pass
+    if not message.photo:
+        bot.send_message(message.chat.id, t("photo_required", lang))
+        bot.register_next_step_handler(message, process_onboard_photo)
+        return
+    file_id = message.photo[-1].file_id
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET profile_photo_id=?, onboard_step='cats' WHERE user_id=?",
+        (file_id, message.from_user.id),
+    )
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("photo_saved", lang))
+    send_category_picker(message.chat.id, message.from_user.id, lang, onboard=True)
+
+
+def send_category_picker(chat_id, user_id, lang="es", onboard=False):
+    conn = get_db()
+    cats = conn.execute("SELECT id, name, emoji FROM categories ORDER BY id").fetchall()
+    selected = {
+        r[0]
+        for r in conn.execute(
+            "SELECT category_id FROM creator_categories WHERE creator_id=?", (user_id,)
+        ).fetchall()
+    }
+    # also allow non-creators: store on user via same table keyed by user_id
+    conn.close()
+    text = t("onboard_cats", lang)
+    if selected:
+        text += f"\n\nSeleccionadas: {len(selected)}/3"
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    row = []
+    for c in cats:
+        mark = "✅ " if c["id"] in selected else ""
+        label = f"{mark}{c['emoji']} {c['name']}"
+        row.append(types.InlineKeyboardButton(label, callback_data=f"catpick_{c['id']}_{1 if onboard else 0}"))
+        if len(row) == 2:
+            kb.row(*row)
+            row = []
+    if row:
+        kb.row(*row)
+    if onboard:
+        kb.add(types.InlineKeyboardButton("✅ Listo / Continuar", callback_data="cats_done_onboard"))
+    else:
+        kb.add(types.InlineKeyboardButton("✅ Guardar", callback_data="cats_done_edit"))
+        kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="edit_profile_menu"))
+    bot.send_message(chat_id, text, reply_markup=kb)
+
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("catpick_"))
+def cb_catpick(call):
+    lang = get_lang(call.from_user.id)
+    parts = call.data.split("_")
+    cat_id = int(parts[1])
+    onboard = parts[2] == "1" if len(parts) > 2 else False
+    uid = call.from_user.id
+    conn = get_db()
+    exists = conn.execute(
+        "SELECT 1 FROM creator_categories WHERE creator_id=? AND category_id=?", (uid, cat_id)
+    ).fetchone()
+    if exists:
+        conn.execute(
+            "DELETE FROM creator_categories WHERE creator_id=? AND category_id=?", (uid, cat_id)
+        )
+    else:
+        count = conn.execute(
+            "SELECT COUNT(*) FROM creator_categories WHERE creator_id=?", (uid,)
+        ).fetchone()[0]
+        if count >= 3:
+            conn.close()
+            bot.answer_callback_query(call.id, "Máximo 3 categorías", show_alert=True)
+            return
+        conn.execute(
+            "INSERT INTO creator_categories (creator_id, category_id) VALUES (?, ?)", (uid, cat_id)
+        )
+    conn.commit()
+    selected = conn.execute(
+        "SELECT COUNT(*) FROM creator_categories WHERE creator_id=?", (uid,)
+    ).fetchone()[0]
+    cats = conn.execute("SELECT id, name, emoji FROM categories ORDER BY id").fetchall()
+    sel_ids = {
+        r[0]
+        for r in conn.execute(
+            "SELECT category_id FROM creator_categories WHERE creator_id=?", (uid,)
+        ).fetchall()
+    }
+    conn.close()
+    text = t("onboard_cats", lang) + f"\n\nSeleccionadas: {selected}/3"
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    row = []
+    for c in cats:
+        mark = "✅ " if c["id"] in sel_ids else ""
+        label = f"{mark}{c['emoji']} {c['name']}"
+        row.append(types.InlineKeyboardButton(label, callback_data=f"catpick_{c['id']}_{1 if onboard else 0}"))
+        if len(row) == 2:
+            kb.row(*row)
+            row = []
+    if row:
+        kb.row(*row)
+    if onboard:
+        kb.add(types.InlineKeyboardButton("✅ Listo / Continuar", callback_data="cats_done_onboard"))
+    else:
+        kb.add(types.InlineKeyboardButton("✅ Guardar", callback_data="cats_done_edit"))
+        kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="edit_profile_menu"))
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    except Exception:
+        pass
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "cats_done_onboard")
+def cb_cats_done_onboard(call):
+    lang = get_lang(call.from_user.id)
+    conn = get_db()
+    # Photo must exist
+    u = conn.execute("SELECT profile_photo_id FROM users WHERE user_id=?", (call.from_user.id,)).fetchone()
+    if not u or not u["profile_photo_id"]:
+        conn.close()
+        bot.answer_callback_query(call.id, t("photo_required", lang), show_alert=True)
+        return
+    conn.execute(
+        "UPDATE users SET profile_complete=1, onboard_step='done' WHERE user_id=?",
+        (call.from_user.id,),
+    )
+    conn.commit()
+    conn.close()
+    bot.answer_callback_query(call.id, t("cats_saved", lang))
+    try:
+        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+    except Exception:
+        pass
+    finish_onboarding(call.message.chat.id, call.from_user.id, lang)
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "cats_done_edit")
+def cb_cats_done_edit(call):
+    lang = get_lang(call.from_user.id)
+    bot.answer_callback_query(call.id, t("cats_saved", lang))
+    cb_edit_profile_menu(call)
+
+
+def finish_onboarding(chat_id, user_id, lang="es"):
+    bot.send_message(chat_id, t("onboard_done", lang))
+    ref = get_setting(f"ref_{user_id}")
+    if ref:
+        try:
+            show_profile(chat_id, user_id, int(ref))
+            set_setting(f"ref_{user_id}", "")
+            return
+        except Exception:
+            pass
+    send_main_menu(chat_id, user_id, lang=lang)
+
+
+def require_complete_profile(user_id, chat_id=None, lang=None):
+    user = get_user(user_id)
+    if not user:
+        return False
+    complete = False
+    try:
+        complete = int(user["profile_complete"] or 0) == 1 and bool(user["profile_photo_id"])
+    except Exception:
+        complete = False
+    if user["age_declared"] and user["terms_accepted"] and complete:
+        return True
+    lang = lang or user["language"] or "es"
+    if chat_id:
+        bot.send_message(chat_id, t("profile_incomplete", lang))
+        show_login(chat_id, lang, None)
+    return False
+
 
 # ==================== BUSCADOR ====================
 @bot.callback_query_handler(func=lambda c: c.data == "menu_search")
@@ -647,46 +1333,109 @@ def cb_profile(call):
 
 def show_profile(chat_id, viewer_id, target_id, message_id=None):
     lang = get_lang(viewer_id)
+    if is_blocked(viewer_id, target_id):
+        bot.send_message(chat_id, t("blocked", lang))
+        return
     conn = get_db()
     u = conn.execute("SELECT * FROM users WHERE user_id=?", (target_id,)).fetchone()
     c = conn.execute("SELECT * FROM creators WHERE user_id=?", (target_id,)).fetchone()
     content_count = conn.execute("SELECT COUNT(*) FROM content WHERE creator_id=?", (target_id,)).fetchone()[0]
+    free_count = conn.execute(
+        "SELECT COUNT(*) FROM content WHERE creator_id=? AND IFNULL(is_free,0)=1", (target_id,)
+    ).fetchone()[0]
     plans = conn.execute("SELECT * FROM creator_plans WHERE creator_id=? AND active=1", (target_id,)).fetchall()
     conn.close()
     if not u:
         bot.send_message(chat_id, "No encontrado.")
         return
-    name = escape_html((c["display_name"] if c else None) or u["first_name"] or "Usuario")
+    display = None
+    try:
+        display = u["display_name"]
+    except (KeyError, IndexError, TypeError):
+        display = None
+    name = escape_html((c["display_name"] if c else None) or display or u["first_name"] or "Usuario")
     is_cre = is_creator(target_id)
     profile_icon = "🎨" if is_cre else "👤"
     text = f"{profile_icon} <b>{name}</b> {get_badges(u)}\n"
-    if u["username"]: text += f"@{escape_html(u['username'])}\n"
+    if u["username"]:
+        text += f"@{escape_html(u['username'])}\n"
     text += f"Género: {get_gender_text(u)}\n"
+    cats = get_creator_categories(target_id)
+    if cats:
+        text += " · ".join(f"{row['emoji']} {escape_html(row['name'])}" for row in cats) + "\n"
     bio = (c["bio"] if c and c["bio"] else u["bio"]) or ""
-    if bio: text += f"\n{escape_html(bio)}\n"
+    if bio:
+        text += f"\n{escape_html(bio)}\n"
+    try:
+        loc = u["location"] or ""
+    except Exception:
+        loc = ""
+    if loc:
+        text += f"📍 {escape_html(loc)}\n"
+    links = []
+    try:
+        if u["website"]:
+            links.append(f"🌐 {escape_html(u['website'])}")
+        if u["social_ig"]:
+            links.append(f"📸 IG: {escape_html(u['social_ig'])}")
+        if u["social_x"]:
+            links.append(f"🐦 X: {escape_html(u['social_x'])}")
+        if u["social_tiktok"]:
+            links.append(f"🎵 TT: {escape_html(u['social_tiktok'])}")
+    except Exception:
+        pass
+    if links:
+        text += "\n" + "\n".join(links) + "\n"
     kb = types.InlineKeyboardMarkup()
     if is_cre:
-        text += f"\n📸 Contenidos: {content_count} | 👥 {c['total_subscribers'] if c else 0}\n"
+        text += f"\n📸 Contenidos: {content_count} (libres: {free_count}) | 👥 {c['total_subscribers'] if c else 0}\n"
         if plans:
             text += "\n<b>Planes:</b>\n"
             for p in plans:
                 text += f"• {escape_html(p['name'])} — {format_price(p['price'])}\n"
-                kb.add(types.InlineKeyboardButton(f"💳 {p['name']} {format_price(p['price'])}", callback_data=f"buyplan_{p['id']}"))
-        if has_access(viewer_id, target_id):
-            text += f"\n{t('has_sub', lang)}"
-            kb.add(types.InlineKeyboardButton(t("view_content", lang), callback_data=f"viewcontent_{target_id}_0"))
-        # Videollamada
+                kb.add(types.InlineKeyboardButton(
+                    f"💳 {p['name']} {format_price(p['price'])}", callback_data=f"buyplan_{p['id']}"))
+        if has_unlimited_access(viewer_id, target_id):
+            text += f"\n✅ <b>Plan activo (acceso completo)</b> — ves todas las publicaciones"
+            kb.add(types.InlineKeyboardButton("📸 Ver todo el contenido", callback_data=f"viewcontent_{target_id}_0"))
+        elif get_pack_credits(viewer_id, target_id) > 0 or _has_any_unlocked(viewer_id, target_id):
+            cr = get_pack_credits(viewer_id, target_id)
+            text += f"\n📦 <b>Pack activo</b> — créditos: {cr} (solo esas fotos, no el muro entero)"
+            kb.add(types.InlineKeyboardButton(f"📦 Abrir pack ({cr} cr)", callback_data=f"viewcontent_{target_id}_0"))
+        else:
+            text += f"\n{t('locked_preview', lang)}"
+            if free_count:
+                kb.add(types.InlineKeyboardButton("🆓 Ver muestra gratis", callback_data=f"viewfree_{target_id}_0"))
         vc_plan = next((p for p in plans if p["plan_type"] == "videocall"), None)
         if vc_plan:
-            kb.add(types.InlineKeyboardButton(f"📞 Solicitar videollamada {format_price(vc_plan['price'])}",
-                                              callback_data=f"reqvc_{target_id}_{vc_plan['id']}"))
-        kb.add(types.InlineKeyboardButton(t("report", lang), callback_data=f"report_{target_id}"))
+            kb.add(types.InlineKeyboardButton(
+                f"📞 Videollamada {format_price(vc_plan['price'])}",
+                callback_data=f"reqvc_{target_id}_{vc_plan['id']}"))
+        fav_label = "★ Quitar favorito" if is_favorite(viewer_id, target_id) else "☆ Favorito"
+        kb.add(types.InlineKeyboardButton(fav_label, callback_data=f"togglefav_{target_id}"))
+        kb.add(types.InlineKeyboardButton("✉️ Mensaje", callback_data=f"msgcreator_{target_id}"))
+        kb.add(
+            types.InlineKeyboardButton(t("report", lang), callback_data=f"report_{target_id}"),
+            types.InlineKeyboardButton("🚫 Bloquear", callback_data=f"block_{target_id}"),
+        )
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+    photo_id = None
+    try:
+        photo_id = u["profile_photo_id"]
+    except (KeyError, IndexError, TypeError):
+        photo_id = None
+    if photo_id:
+        try:
+            bot.send_photo(chat_id, photo_id, caption=text, reply_markup=kb)
+            return
+        except Exception:
+            pass
     if message_id:
         try:
             bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
             return
-        except: pass
+        except Exception:
+            pass
     bot.send_message(chat_id, text, reply_markup=kb)
 
 # ==================== COMPRAR PLAN ====================
@@ -701,8 +1450,9 @@ def cb_buy_plan(call):
         bot.answer_callback_query(call.id, "No disponible", show_alert=True)
         return
     fee, net = calc_fee(p["price"])
+    pay_txt = build_payment_methods_text()
     text = (f"💳 <b>{escape_html(p['name'])}</b>\n\nPrecio: {format_price(p['price'])}\n"
-            f"{escape_html(p['description'])}\n\n{get_setting('payment_methods')}\n\nEnvía captura tras pagar.")
+            f"{escape_html(p['description'] or '')}\n\n{pay_txt}")
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("📸 Ya pagué", callback_data=f"proofplan_{plan_id}"))
     kb.add(types.InlineKeyboardButton(t("back", lang), callback_data=f"profile_{p['creator_id']}"))
@@ -813,52 +1563,138 @@ def process_vc_proof(message, creator_id, plan_id):
 # ==================== VER CONTENIDO ====================
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("viewcontent_"))
 def cb_view_content(call):
+    """Feed del creador: mensual = todo el perfil; pack = solo posts desbloqueados / desbloquear con créditos."""
     parts = call.data.split("_")
-    creator_id, offset = int(parts[1]), int(parts[2]) if len(parts) > 2 else 0
+    creator_id = int(parts[1])
+    offset = int(parts[2]) if len(parts) > 2 else 0
     lang = get_lang(call.from_user.id)
-    if not has_access(call.from_user.id, creator_id):
+    uid = call.from_user.id
+    unlimited = has_unlimited_access(uid, creator_id)
+    credits = get_pack_credits(uid, creator_id)
+    if not unlimited and credits <= 0 and not _has_any_unlocked(uid, creator_id):
         bot.answer_callback_query(call.id, t("must_pay", lang), show_alert=True)
         return
+
     conn = get_db()
-    items = conn.execute("SELECT * FROM content WHERE creator_id=? ORDER BY id DESC LIMIT 1 OFFSET ?",
-                         (creator_id, offset)).fetchall()
-    total = conn.execute("SELECT COUNT(*) FROM content WHERE creator_id=?", (creator_id,)).fetchone()[0]
+    total = conn.execute(
+        "SELECT COUNT(*) FROM content WHERE creator_id=? AND IFNULL(is_free,0)=0", (creator_id,)
+    ).fetchone()[0]
+    # Feed: latest posts
+    items = conn.execute(
+        """SELECT * FROM content WHERE creator_id=? AND IFNULL(is_free,0)=0
+           ORDER BY id DESC LIMIT 5 OFFSET ?""",
+        (creator_id, offset),
+    ).fetchall()
+    cre = conn.execute("SELECT display_name FROM creators WHERE user_id=?", (creator_id,)).fetchone()
     conn.close()
+
+    cname = escape_html((cre["display_name"] if cre else None) or "Creador")
+    if unlimited:
+        mode = "🔓 <b>Suscripción activa</b> — acceso completo al perfil"
+    else:
+        mode = f"📦 <b>Pack</b> — créditos restantes: <b>{credits}</b> (solo desbloqueas fotos, no todo el muro)"
+
     if not items:
         bot.answer_callback_query(call.id, t("no_content", lang), show_alert=True)
         return
-    item = items[0]
-    if not consume_credit(call.from_user.id, creator_id):
-        bot.answer_callback_query(call.id, "Sin créditos.", show_alert=True)
+
+    text = f"📸 <b>Feed de {cname}</b>\n{mode}\n\n"
+    kb = types.InlineKeyboardMarkup()
+    for item in items:
+        unlocked = unlimited or is_content_unlocked(uid, item["id"])
+        title = escape_html(item["title"] or f"Post #{item['id']}")
+        media = "🎬" if item["media_type"] == "video" else "🖼"
+        if unlocked:
+            text += f"{media} ✅ {title} — ❤️ {item['likes']}\n"
+            kb.add(types.InlineKeyboardButton(
+                f"{media} Ver {title[:28]}", callback_data=f"openpost_{item['id']}"
+            ))
+        else:
+            text += f"{media} 🔒 {title} — desbloquear (1 crédito)\n"
+            kb.add(types.InlineKeyboardButton(
+                f"🔓 Desbloquear {title[:24]} (1 cr)", callback_data=f"unlockpost_{item['id']}"
+            ))
+
+    nav = []
+    if offset > 0:
+        nav.append(types.InlineKeyboardButton("◀ Anteriores", callback_data=f"viewcontent_{creator_id}_{max(0, offset-5)}"))
+    if offset + 5 < total:
+        nav.append(types.InlineKeyboardButton("Siguientes ▶", callback_data=f"viewcontent_{creator_id}_{offset+5}"))
+    if nav:
+        kb.row(*nav)
+    kb.add(types.InlineKeyboardButton("👤 Perfil", callback_data=f"profile_{creator_id}"))
+    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+    try:
+        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    except Exception:
+        bot.send_message(call.message.chat.id, text, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("unlockpost_"))
+def cb_unlock_post(call):
+    lang = get_lang(call.from_user.id)
+    content_id = int(call.data.split("_")[1])
+    conn = get_db()
+    item = conn.execute("SELECT * FROM content WHERE id=?", (content_id,)).fetchone()
+    conn.close()
+    if not item:
+        bot.answer_callback_query(call.id, "No existe", show_alert=True)
+        return
+    ok, reason = unlock_content_with_credit(call.from_user.id, content_id, item["creator_id"])
+    if not ok:
+        bot.answer_callback_query(call.id, "Sin créditos de pack. Compra un pack o un plan mensual.", show_alert=True)
+        return
+    bot.answer_callback_query(call.id, "Desbloqueado ✅")
+    # Show the media
+    _send_post_media(call.message.chat.id, call.from_user.id, item, lang)
+
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("openpost_"))
+def cb_open_post(call):
+    lang = get_lang(call.from_user.id)
+    content_id = int(call.data.split("_")[1])
+    conn = get_db()
+    item = conn.execute("SELECT * FROM content WHERE id=?", (content_id,)).fetchone()
+    conn.close()
+    if not item:
+        bot.answer_callback_query(call.id, "No existe", show_alert=True)
+        return
+    if not is_content_unlocked(call.from_user.id, content_id) and not has_unlimited_access(call.from_user.id, item["creator_id"]):
+        bot.answer_callback_query(call.id, "Bloqueado", show_alert=True)
         return
     bot.answer_callback_query(call.id)
-    caption = (f"📸 {escape_html(item['title'] or 'Contenido')}\n{escape_html(item['description'])}\n\n"
-               f"❤️ {item['likes']} 💔 {item['dislikes']} 👁 {item['views']}\n"
-               f"<i>🔒 Protegido</i>")
-    try:
-        if item["media_type"] == "video":
-            bot.send_video(call.message.chat.id, item["file_id"], caption=caption, protect_content=True)
-        else:
-            bot.send_photo(call.message.chat.id, item["file_id"], caption=caption, protect_content=True)
-    except:
-        bot.send_message(call.message.chat.id, "Error al cargar.")
-        return
+    _send_post_media(call.message.chat.id, call.from_user.id, item, lang)
+
+
+def _send_post_media(chat_id, user_id, item, lang="es"):
     conn = get_db()
     conn.execute("UPDATE content SET views=views+1 WHERE id=?", (item["id"],))
     conn.commit()
     conn.close()
+    caption = (
+        f"📸 {escape_html(item['title'] or 'Contenido')}\\n"
+        f"{escape_html(item['description'] or '')}\\n\\n"
+        f"❤️ {item['likes']} · 💔 {item['dislikes']} · 👁 {item['views']+1}\\n"
+        f"<i>🔒 protect_content — no reenviar / guardar</i>"
+    )
+    try:
+        if item["media_type"] == "video":
+            bot.send_video(chat_id, item["file_id"], caption=caption, protect_content=True)
+        else:
+            bot.send_photo(chat_id, item["file_id"], caption=caption, protect_content=True)
+    except Exception:
+        bot.send_message(chat_id, "Error al cargar el medio.")
+        return
     kb = types.InlineKeyboardMarkup(row_width=3)
     kb.row(
         types.InlineKeyboardButton(f"❤️ {item['likes']}", callback_data=f"like_{item['id']}"),
         types.InlineKeyboardButton(f"💔 {item['dislikes']}", callback_data=f"dislike_{item['id']}"),
-        types.InlineKeyboardButton("💬", callback_data=f"comment_{item['id']}")
+        types.InlineKeyboardButton("💬", callback_data=f"comment_{item['id']}"),
     )
-    nav = []
-    if offset > 0: nav.append(types.InlineKeyboardButton("◀", callback_data=f"viewcontent_{creator_id}_{offset-1}"))
-    if offset + 1 < total: nav.append(types.InlineKeyboardButton("▶", callback_data=f"viewcontent_{creator_id}_{offset+1}"))
-    if nav: kb.row(*nav)
-    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data=f"profile_{creator_id}"))
-    bot.send_message(call.message.chat.id, f"{offset+1}/{total}", reply_markup=kb)
+    kb.add(types.InlineKeyboardButton("📸 Volver al feed", callback_data=f"viewcontent_{item['creator_id']}_0"))
+    bot.send_message(chat_id, "Reacciones:", reply_markup=kb)
+
 
 @bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("like_"))
 def cb_like(call):
@@ -933,26 +1769,53 @@ def save_comment(message, content_id):
         except: pass
 
 # ==================== EXPLORAR ====================
-@bot.callback_query_handler(func=lambda c: c.data == "menu_explore")
+def _list_creators_page(page=0, page_size=8, exclude_viewer=None):
+    conn = get_db()
+    total = conn.execute("""SELECT COUNT(*) FROM creators c JOIN users u ON c.user_id=u.user_id
+        WHERE u.creator_verified=2 AND u.banned=0""").fetchone()[0]
+    offset = page * page_size
+    creators = conn.execute("""SELECT c.*, u.first_name, u.username, u.gender, u.gender_verified, u.age_verified_real, u.user_id
+        FROM creators c JOIN users u ON c.user_id=u.user_id
+        WHERE u.creator_verified=2 AND u.banned=0
+        ORDER BY c.total_subscribers DESC LIMIT ? OFFSET ?""", (page_size, offset)).fetchall()
+    conn.close()
+    if exclude_viewer:
+        creators = [c for c in creators if not is_blocked(exclude_viewer, c["user_id"])]
+    return creators, total
+
+@bot.callback_query_handler(func=lambda c: c.data == "menu_explore" or (c.data and c.data.startswith("explore_page_")))
 def cb_explore(call):
     lang = get_lang(call.from_user.id)
-    conn = get_db()
-    creators = conn.execute("""SELECT c.*, u.first_name, u.username, u.gender, u.gender_verified, u.age_verified_real
-        FROM creators c JOIN users u ON c.user_id=u.user_id
-        WHERE u.creator_verified=2 AND u.banned=0 ORDER BY c.total_subscribers DESC LIMIT 20""").fetchall()
-    conn.close()
-    if not creators:
+    page = 0
+    if call.data.startswith("explore_page_"):
+        try:
+            page = max(0, int(call.data.split("_")[-1]))
+        except ValueError:
+            page = 0
+    page_size = 8
+    creators, total = _list_creators_page(page, page_size, exclude_viewer=call.from_user.id)
+    if not creators and page == 0:
         kb = types.InlineKeyboardMarkup()
         kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
         bot.edit_message_text(t("no_creators", lang), call.message.chat.id, call.message.message_id, reply_markup=kb)
         bot.answer_callback_query(call.id)
         return
-    text = "🔍 <b>Creadores</b>\n\n"
+    pages = max(1, (total + page_size - 1) // page_size)
+    text = f"🔍 <b>Creadores</b> (pág. {page+1}/{pages})\n\n"
     kb = types.InlineKeyboardMarkup()
     for c in creators:
         name = c["display_name"] or c["first_name"]
-        text += f"• {escape_html(name)} {get_badges(c)}\n"
-        kb.add(types.InlineKeyboardButton(f"{name} {get_badges(c)}", callback_data=f"profile_{c['user_id']}"))
+        urow = get_user(c["user_id"])
+        badges = get_badges(urow) if urow else ""
+        text += f"• {escape_html(name)} {badges}\n"
+        kb.add(types.InlineKeyboardButton(f"{name}", callback_data=f"profile_{c['user_id']}"))
+    nav = []
+    if page > 0:
+        nav.append(types.InlineKeyboardButton("« Ant", callback_data=f"explore_page_{page-1}"))
+    if page + 1 < pages:
+        nav.append(types.InlineKeyboardButton("Sig »", callback_data=f"explore_page_{page+1}"))
+    if nav:
+        kb.row(*nav)
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
     bot.answer_callback_query(call.id)
@@ -1365,16 +2228,39 @@ def cb_account(call):
     if not user or is_banned(call.from_user.id):
         bot.answer_callback_query(call.id, "Usa /start para continuar", show_alert=True)
         return
+    dname = escape_html(user["display_name"] or user["first_name"] or "Usuario")
     text = (f"👤 <b>Mi perfil</b> {get_badges(user)}\n\n"
+            f"Nombre: <b>{dname}</b>\n"
             f"ID: <code>{call.from_user.id}</code>\nRol: {user['role'] if user else 'user'}\n"
             f"VIP: {'Sí' if is_vip(call.from_user.id) else 'No'}\n"
             f"Género: {get_gender_text(user)}\n")
+    if user["bio"]:
+        text += f"\n📄 {escape_html(user['bio'][:200])}\n"
+    try:
+        if user["location"]:
+            text += f"📍 {escape_html(user['location'])}\n"
+        if user["website"]:
+            text += f"🌐 {escape_html(user['website'])}\n"
+        if user["social_ig"]:
+            text += f"📸 IG: {escape_html(user['social_ig'])}\n"
+        if user["social_x"]:
+            text += f"🐦 X: {escape_html(user['social_x'])}\n"
+        if user["social_tiktok"]:
+            text += f"🎵 TT: {escape_html(user['social_tiktok'])}\n"
+    except Exception:
+        pass
+    if user["profile_photo_id"]:
+        text += "📷 Foto de perfil: sí\n"
+    else:
+        text += "📷 Foto de perfil: falta\n"
+
     kb = types.InlineKeyboardMarkup()
     if not (user and user["age_verified_real"] == 2):
         kb.add(types.InlineKeyboardButton(t("request_verif", lang), callback_data="request_real_verification"))
         kb.add(types.InlineKeyboardButton("Enviar fotos manualmente", callback_data="manual_verification"))
     if user and user["creator_verified"] != 2:
         kb.add(types.InlineKeyboardButton("🎨 Ser Creador ($50)", callback_data="become_creator"))
+    kb.add(types.InlineKeyboardButton(t("edit_profile", lang), callback_data="edit_profile_menu"))
     kb.add(types.InlineKeyboardButton("Ver perfil público", callback_data=f"profile_{call.from_user.id}"))
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
@@ -1446,9 +2332,18 @@ def cb_subs(call):
     text = "Sin planes activos." if not subs else "📋 <b>Mis planes</b>\n\n"
     kb = types.InlineKeyboardMarkup()
     for s in (subs or []):
-        extra = f"({s['credits_left']} cr)" if s["credits_left"] else f"hasta {s['end_date'][:10]}"
-        text += f"• {s['display_name']} {extra}\n"
-        kb.add(types.InlineKeyboardButton(f"Ver {s['display_name']}", callback_data=f"viewcontent_{s['creator_id']}_0"))
+        ptype = (s["plan_type"] or "") if "plan_type" in s.keys() else ""
+        if ptype.startswith("pack") or ptype in ("pack3", "pack10"):
+            extra = f"📦 Pack — {s['credits_left'] or 0} fotos restantes"
+            btn = f"📦 Pack {s['display_name']}"
+        elif ptype in ("monthly", "quarterly"):
+            extra = f"🔓 {'Mensual' if ptype=='monthly' else 'Trimestral'} hasta {(s['end_date'] or '')[:10]}"
+            btn = f"🔓 Feed {s['display_name']}"
+        else:
+            extra = f"hasta {(s['end_date'] or '')[:10]}" if s["end_date"] else f"{s['credits_left'] or 0} cr"
+            btn = f"Ver {s['display_name']}"
+        text += f"• <b>{escape_html(s['display_name'])}</b> — {extra}\n"
+        kb.add(types.InlineKeyboardButton(btn[:60], callback_data=f"viewcontent_{s['creator_id']}_0"))
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
     bot.answer_callback_query(call.id)
@@ -1456,7 +2351,7 @@ def cb_subs(call):
 @bot.callback_query_handler(func=lambda c: c.data == "become_creator")
 def cb_become_creator(call):
     lang = get_lang(call.from_user.id)
-    text = f"🎨 Ser Creador — {format_price(CREATOR_FEE)}\n\nPublica, pon precios, videollamadas.\nComisión plataforma: {get_platform_fee_percent()}%\n\n{get_setting('payment_methods')}"
+    text = f"🎨 Ser Creador — {format_price(CREATOR_FEE)}\n\nPublica, pon precios, videollamadas.\nComisión plataforma: {get_platform_fee_percent()}%\n\n{t('payment_test_mode', lang)}\n\n{get_setting('payment_methods')}"
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("💸 Ya pagué", callback_data="pay_creator_fee"))
     kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_account"))
@@ -1491,20 +2386,31 @@ def process_creator_fee(message):
 
 @bot.callback_query_handler(func=lambda c: c.data == "admin_panel")
 def cb_admin_panel(call):
-    if not is_admin(call.from_user.id): return
+    if not is_admin(call.from_user.id):
+        return
     conn = get_db()
     pending_tx = conn.execute("SELECT COUNT(*) FROM transactions WHERE status='pending'").fetchone()[0]
     total_fees = conn.execute("SELECT COALESCE(SUM(platform_fee),0) FROM transactions WHERE status='approved'").fetchone()[0]
     contents = conn.execute("SELECT COUNT(*) FROM content").fetchone()[0]
+    users_n = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    creators_n = conn.execute("SELECT COUNT(*) FROM users WHERE creator_verified=2").fetchone()[0]
     conn.close()
-    text = (f"🔧 <b>Admin</b>\n\n"
-            f"Pagos pendientes: {pending_tx}\n"
-            f"Contenidos: {contents}\n"
-            f"💰 Comisiones acumuladas: {format_price(total_fees)}\n"
-            f"Comisión actual: {get_platform_fee_percent()}%\n"
-            f"Grupo: {GROUP_INVITE}")
-    kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton("💰 Cambiar % comisión", callback_data="set_fee"))
+    text = (
+        f"🔧 <b>Panel Admin</b>\n\n"
+        f"👥 Usuarios: {users_n} | 🎨 Creadores: {creators_n}\n"
+        f"⏳ Pagos pendientes: <b>{pending_tx}</b>\n"
+        f"📸 Contenidos: {contents}\n"
+        f"💰 Comisiones: {format_price(total_fees)} ({get_platform_fee_percent()}%)\n"
+        f"Grupo: {escape_html(GROUP_INVITE or '—')}"
+    )
+    kb = types.InlineKeyboardMarkup(row_width=2)
+    kb.add(types.InlineKeyboardButton("⏳ Pagos pendientes", callback_data="admin_pending_tx"))
+    kb.add(types.InlineKeyboardButton("💳 Métodos de pago", callback_data="admin_pay_methods"))
+    kb.add(types.InlineKeyboardButton("💰 % Comisión", callback_data="set_fee"))
+    kb.add(types.InlineKeyboardButton("📢 Anuncio grupo", callback_data="admin_set_announcement"))
+    kb.add(types.InlineKeyboardButton("📜 Términos", callback_data="admin_set_terms"))
+    kb.add(types.InlineKeyboardButton("📋 Reglas grupo", callback_data="admin_set_rules"))
+    kb.add(types.InlineKeyboardButton("📊 Stats", callback_data="admin_stats"))
     kb.add(types.InlineKeyboardButton("« Menú", callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
     bot.answer_callback_query(call.id)
@@ -1643,14 +2549,35 @@ def on_new_member(message):
         upsert_user(m)
         bot.send_message(message.chat.id, t("group_welcome", get_lang(tg_user=m), name=escape_html(m.first_name or "Usuario")))
 
-@bot.message_handler(commands=["ayuda", "help"])
+@bot.message_handler(commands=["ayuda", "help", "comandos"])
 def cmd_help_g(message):
     if is_private_chat(message):
         bot.send_message(message.chat.id, t("help_text", get_lang(tg_user=message.from_user)))
         return
-    text = "/ayuda /reglas /soporte /yo /anuncio\n"
-    if is_vip(message.from_user.id): text += "👑 /promo /invitar\n"
-    if is_admin(message.from_user.id): text += "🔧 /silenciar /activar /broadcast /stats\n"
+    text = (
+        "📋 <b>Comandos del grupo</b>\n\n"
+        "👤 Todos:\n"
+        "• /ayuda /comandos — esta lista\n"
+        "• /reglas — reglas del grupo\n"
+        "• /soporte &lt;msg&gt; — contactar admin\n"
+        "• /yo — tu perfil y badges\n"
+        "• /anuncio — anuncio de la app\n"
+        "• /traducir &lt;texto&gt; — traducir a español\n\n"
+    )
+    if is_vip(message.from_user.id):
+        text += (
+            "👑 VIP / Creadores:\n"
+            "• /promo — publicar perfil (cada 30 min)\n"
+            "• /invitar — link de invitación a tu perfil\n\n"
+        )
+    if is_admin(message.from_user.id):
+        text += (
+            "🔧 Admin:\n"
+            "• /silenciar — silenciar grupo\n"
+            "• /activar — quitar silencio\n"
+            "• /broadcast &lt;msg&gt; — anuncio en grupo\n"
+            "• /stats — estadísticas\n"
+        )
     bot.reply_to(message, text)
 
 @bot.message_handler(commands=["reglas"])
@@ -1676,6 +2603,42 @@ def cmd_me(message):
 @bot.message_handler(commands=["anuncio"])
 def cmd_anuncio(message):
     bot.reply_to(message, get_setting("announcement") or "Sin anuncios.")
+
+
+@bot.message_handler(commands=["traducir", "translate"])
+def cmd_traducir(message):
+    """Traducción simple al español para mensajes del grupo."""
+    parts = (message.text or "").split(maxsplit=1)
+    if len(parts) < 2:
+        bot.reply_to(message, "Uso: /traducir texto a traducir")
+        return
+    text = parts[1].strip()
+    # Diccionario básico + respuesta clara (sin API externa)
+    # Si el texto ya parece español, se devuelve tal cual.
+    sample = text.lower()
+    es_markers = (" el ", " la ", " de ", " que ", " y ", " con ", " por ", " para ")
+    if any(m in f" {sample} " for m in es_markers):
+        bot.reply_to(message, f"🇪🇸 Ya parece español:\n{escape_html(text)[:1500]}")
+        return
+    # Mini glosario para frases comunes del grupo
+    glossary = {
+        "hello": "hola", "hi": "hola", "thanks": "gracias", "thank you": "gracias",
+        "please": "por favor", "help": "ayuda", "support": "soporte",
+        "subscribe": "suscribirse", "price": "precio", "content": "contenido",
+        "creator": "creador", "profile": "perfil", "welcome": "bienvenido",
+        "rules": "reglas", "banned": "baneado", "promo": "promoción",
+    }
+    out = text
+    low = text.lower()
+    for en, es in sorted(glossary.items(), key=lambda x: -len(x[0])):
+        if en in low:
+            out = out.replace(en, es).replace(en.title(), es.capitalize()).replace(en.upper(), es.upper())
+            low = out.lower()
+    bot.reply_to(
+        message,
+        f"🇪🇸 <b>Traducción (básica)</b>:\n{escape_html(out)[:1500]}\n\n"
+        f"<i>Para traducciones avanzadas usa un traductor externo; este comando cubre frases del grupo.</i>",
+    )
 
 @bot.message_handler(commands=["promo"])
 def cmd_promo(message):
@@ -1741,6 +2704,530 @@ def filter_muted(message):
     if GROUP_ID and message.chat.id != GROUP_ID: return
     try: bot.delete_message(message.chat.id, message.message_id)
     except: pass
+
+
+# ==================== FAVORITOS / AJUSTES / BLOQUEO / MENSAJES ====================
+@bot.callback_query_handler(func=lambda c: c.data == "menu_favs")
+def cb_favs(call):
+    lang = get_lang(call.from_user.id)
+    conn = get_db()
+    rows = conn.execute("""SELECT f.creator_id, c.display_name, u.first_name FROM favorites f
+        JOIN creators c ON c.user_id=f.creator_id
+        JOIN users u ON u.user_id=f.creator_id
+        WHERE f.user_id=? ORDER BY f.created_at DESC LIMIT 30""", (call.from_user.id,)).fetchall()
+    conn.close()
+    kb = types.InlineKeyboardMarkup()
+    if not rows:
+        text = t("no_favs", lang)
+    else:
+        text = "⭐ <b>Favoritos</b>\n\n"
+        for r in rows:
+            name = escape_html(r["display_name"] or r["first_name"] or str(r["creator_id"]))
+            text += f"• {name}\n"
+            kb.add(types.InlineKeyboardButton(name, callback_data=f"profile_{r['creator_id']}"))
+    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("togglefav_"))
+def cb_toggle_fav(call):
+    lang = get_lang(call.from_user.id)
+    cid = int(call.data.split("_")[1])
+    added = toggle_favorite(call.from_user.id, cid)
+    bot.answer_callback_query(call.id, t("fav_added" if added else "fav_removed", lang))
+    show_profile(call.message.chat.id, call.from_user.id, cid, call.message.message_id)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("block_"))
+def cb_block(call):
+    lang = get_lang(call.from_user.id)
+    tid = int(call.data.split("_")[1])
+    if tid == call.from_user.id:
+        bot.answer_callback_query(call.id, "No puedes bloquearte a ti mismo", show_alert=True)
+        return
+    conn = get_db()
+    conn.execute("INSERT OR IGNORE INTO blocks (user_id, blocked_id, created_at) VALUES (?,?,?)",
+                 (call.from_user.id, tid, datetime.now().isoformat()))
+    conn.execute("DELETE FROM favorites WHERE user_id=? AND creator_id=?", (call.from_user.id, tid))
+    conn.commit()
+    conn.close()
+    bot.answer_callback_query(call.id, t("blocked", lang), show_alert=True)
+    send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("msgcreator_"))
+def cb_msg_creator(call):
+    lang = get_lang(call.from_user.id)
+    tid = int(call.data.split("_")[1])
+    ok, wait = check_cooldown(call.from_user.id, "msg_creator", minutes=5)
+    if not ok:
+        bot.answer_callback_query(call.id, f"Espera {wait} min", show_alert=True)
+        return
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, t("msg_creator_prompt", lang))
+    bot.register_next_step_handler(msg, process_creator_message, tid)
+
+def process_creator_message(message, creator_id):
+    lang = get_lang(message.from_user.id)
+    text = (message.text or "").strip()[:500]
+    if not text:
+        bot.send_message(message.chat.id, "Mensaje vacío.")
+        return
+    conn = get_db()
+    conn.execute("INSERT INTO creator_messages (from_id, to_id, text, created_at) VALUES (?,?,?,?)",
+                 (message.from_user.id, creator_id, text, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+    set_cooldown(message.from_user.id, "msg_creator")
+    try:
+        bot.send_message(creator_id,
+            f"✉️ Mensaje de {escape_html(message.from_user.first_name)} (<code>{message.from_user.id}</code>):\n\n{escape_html(text)}")
+    except Exception:
+        pass
+    bot.send_message(message.chat.id, t("msg_sent", lang))
+
+@bot.callback_query_handler(func=lambda c: c.data == "menu_settings")
+def cb_settings(call):
+    lang = get_lang(call.from_user.id)
+    text = t("settings_title", lang) + f"\n\nIdioma: <b>{lang}</b>\n"
+    text += "\n" + t("payment_test_mode", lang)
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton("🇪🇸 Español", callback_data="setlang_es"),
+           types.InlineKeyboardButton("🇬🇧 English", callback_data="setlang_en"))
+    kb.add(types.InlineKeyboardButton(t("pay_history", lang), callback_data="pay_history"))
+    kb.add(types.InlineKeyboardButton("🗑 Eliminar mis datos", callback_data="delete_data_ask"))
+    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("setlang_"))
+def cb_setlang(call):
+    lang = call.data.split("_")[1]
+    if lang not in ("es", "en"):
+        bot.answer_callback_query(call.id, "Idioma no válido", show_alert=True)
+        return
+    conn = get_db()
+    conn.execute("UPDATE users SET language=? WHERE user_id=?", (lang, call.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.answer_callback_query(call.id, t("lang_set", lang))
+    cb_settings(call)
+
+@bot.callback_query_handler(func=lambda c: c.data == "pay_history")
+def cb_pay_history(call):
+    lang = get_lang(call.from_user.id)
+    conn = get_db()
+    rows = conn.execute("""SELECT id, type, amount, status, created_at FROM transactions
+        WHERE user_id=? ORDER BY id DESC LIMIT 15""", (call.from_user.id,)).fetchall()
+    conn.close()
+    if not rows:
+        text = t("empty_history", lang)
+    else:
+        text = t("pay_history", lang) + "\n\n"
+        for r in rows:
+            text += f"#{r['id']} {escape_html(r['type'])} {format_price(r['amount'])} — {r['status']} ({(r['created_at'] or '')[:10]})\n"
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_settings"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "delete_data_ask")
+def cb_delete_ask(call):
+    lang = get_lang(call.from_user.id)
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton("✅ Confirmar borrado", callback_data="delete_data_yes"))
+    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_settings"))
+    bot.edit_message_text(t("delete_data_confirm", lang), call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "delete_data_yes")
+def cb_delete_yes(call):
+    lang = get_lang(call.from_user.id)
+    uid = call.from_user.id
+    if is_admin(uid):
+        bot.answer_callback_query(call.id, "El admin no puede auto-borrarse", show_alert=True)
+        return
+    conn = get_db()
+    for table, col in [
+        ("favorites", "user_id"), ("blocks", "user_id"), ("reactions", "user_id"),
+        ("comments", "user_id"), ("subscriptions", "user_id"), ("transactions", "user_id"),
+        ("verifications", "user_id"), ("reports", "reporter_id"), ("creator_messages", "from_id"),
+        ("videocalls", "user_id"), ("cooldowns", "user_id"),
+    ]:
+        try:
+            conn.execute(f"DELETE FROM {table} WHERE {col}=?", (uid,))
+        except Exception:
+            pass
+    conn.execute("DELETE FROM users WHERE user_id=?", (uid,))
+    conn.commit()
+    conn.close()
+    bot.edit_message_text(t("delete_data_done", lang), call.message.chat.id, call.message.message_id)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("viewfree_"))
+def cb_view_free(call):
+    lang = get_lang(call.from_user.id)
+    parts = call.data.split("_")
+    creator_id, offset = int(parts[1]), int(parts[2]) if len(parts) > 2 else 0
+    conn = get_db()
+    rows = conn.execute("""SELECT * FROM content WHERE creator_id=? AND is_free=1
+        ORDER BY id DESC LIMIT 1 OFFSET ?""", (creator_id, offset)).fetchall()
+    total = conn.execute("SELECT COUNT(*) FROM content WHERE creator_id=? AND is_free=1", (creator_id,)).fetchone()[0]
+    conn.close()
+    if not rows:
+        bot.answer_callback_query(call.id, t("no_content", lang), show_alert=True)
+        return
+    item = rows[0]
+    caption = f"🆓 Muestra\n{escape_html(item['title'] or '')}"
+    try:
+        if item["media_type"] == "video":
+            bot.send_video(call.message.chat.id, item["file_id"], caption=caption, protect_content=True)
+        else:
+            bot.send_photo(call.message.chat.id, item["file_id"], caption=caption, protect_content=True)
+    except Exception:
+        bot.send_message(call.message.chat.id, t("no_content", lang))
+    kb = types.InlineKeyboardMarkup()
+    if offset + 1 < total:
+        kb.add(types.InlineKeyboardButton("Siguiente muestra", callback_data=f"viewfree_{creator_id}_{offset+1}"))
+    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data=f"profile_{creator_id}"))
+    bot.send_message(call.message.chat.id, f"Muestra {offset+1}/{total}", reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_profile_menu")
+def cb_edit_profile_menu(call):
+    lang = get_lang(call.from_user.id)
+    user = get_user(call.from_user.id)
+    if not user:
+        bot.answer_callback_query(call.id, t("profile_incomplete", lang), show_alert=True)
+        return
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton(t("set_name", lang), callback_data="edit_name"))
+    kb.add(types.InlineKeyboardButton(t("set_bio", lang), callback_data="edit_bio"))
+    kb.add(types.InlineKeyboardButton(t("set_photo", lang), callback_data="edit_photo"))
+    kb.add(types.InlineKeyboardButton(t("set_location", lang), callback_data="edit_location"))
+    kb.add(types.InlineKeyboardButton(t("set_links", lang), callback_data="edit_links"))
+    kb.add(types.InlineKeyboardButton(t("set_cats", lang), callback_data="edit_cats"))
+    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_account"))
+    bot.edit_message_text("✏️ <b>Editar perfil</b>", call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_name")
+def cb_edit_name(call):
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, t("onboard_name", get_lang(call.from_user.id)))
+    bot.register_next_step_handler(msg, process_edit_name)
+
+def process_edit_name(message):
+    lang = get_lang(message.from_user.id)
+    name = (message.text or "").strip()
+    if len(name) < 2 or len(name) > 40:
+        bot.send_message(message.chat.id, "Nombre entre 2 y 40 caracteres.")
+        return
+    conn = get_db()
+    conn.execute("UPDATE users SET display_name=? WHERE user_id=?", (name, message.from_user.id))
+    conn.execute("UPDATE creators SET display_name=? WHERE user_id=?", (name, message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("name_saved", lang))
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_bio")
+def cb_edit_bio(call):
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, t("onboard_bio", get_lang(call.from_user.id)))
+    bot.register_next_step_handler(msg, process_edit_bio)
+
+def process_edit_bio(message):
+    lang = get_lang(message.from_user.id)
+    bio = (message.text or "").strip()
+    if bio.lower() in ("skip", "omitir", "-"):
+        bio = ""
+    bio = bio[:300]
+    conn = get_db()
+    conn.execute("UPDATE users SET bio=? WHERE user_id=?", (bio, message.from_user.id))
+    conn.execute("UPDATE creators SET bio=? WHERE user_id=?", (bio, message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("bio_saved", lang))
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_photo")
+def cb_edit_photo(call):
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, t("onboard_photo", get_lang(call.from_user.id)))
+    bot.register_next_step_handler(msg, process_edit_photo)
+
+def process_edit_photo(message):
+    lang = get_lang(message.from_user.id)
+    if not message.photo:
+        bot.send_message(message.chat.id, t("photo_required", lang))
+        bot.register_next_step_handler(message, process_edit_photo)
+        return
+    file_id = message.photo[-1].file_id
+    conn = get_db()
+    conn.execute("UPDATE users SET profile_photo_id=? WHERE user_id=?", (file_id, message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("photo_saved", lang))
+
+
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_location")
+def cb_edit_location(call):
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, t("onboard_location", get_lang(call.from_user.id)))
+    bot.register_next_step_handler(msg, process_edit_location)
+
+def process_edit_location(message):
+    lang = get_lang(message.from_user.id)
+    loc = (message.text or "").strip()
+    if loc.lower() in ("skip", "omitir", "-"):
+        loc = ""
+    conn = get_db()
+    conn.execute("UPDATE users SET location=? WHERE user_id=?", (loc[:80], message.from_user.id))
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("location_saved", lang))
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_links")
+def cb_edit_links(call):
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, t("onboard_links", get_lang(call.from_user.id)))
+    bot.register_next_step_handler(msg, process_edit_links)
+
+def process_edit_links(message):
+    lang = get_lang(message.from_user.id)
+    website, ig, x, tt = _parse_links_line(message.text)
+    conn = get_db()
+    conn.execute(
+        "UPDATE users SET website=?, social_ig=?, social_x=?, social_tiktok=? WHERE user_id=?",
+        (website, ig, x, tt, message.from_user.id),
+    )
+    conn.commit()
+    conn.close()
+    bot.send_message(message.chat.id, t("links_saved", lang))
+
+@bot.callback_query_handler(func=lambda c: c.data == "edit_cats")
+def cb_edit_cats(call):
+    bot.answer_callback_query(call.id)
+    send_category_picker(call.message.chat.id, call.from_user.id, get_lang(call.from_user.id), onboard=False)
+
+
+
+# ==================== ADMIN: PAGOS Y AJUSTES ====================
+PAY_METHOD_KEYS = [
+    ("pay_zelle", "🇺🇸 Zelle"),
+    ("pay_mexico", "🇲🇽 México (banco/CLABE)"),
+    ("pay_oxxo", "🏪 OXXO"),
+    ("pay_euros", "🇪🇺 Euros"),
+    ("pay_mobile", "📱 Saldo móvil"),
+    ("pay_other", "➕ Otro"),
+]
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_pay_methods")
+def cb_admin_pay_methods(call):
+    if not is_admin(call.from_user.id):
+        return
+    text = "💳 <b>Métodos de pago</b>\n\nElige cuál editar. El texto que pongas lo verán los usuarios al pagar.\n\n"
+    text += build_payment_methods_text()
+    kb = types.InlineKeyboardMarkup()
+    for key, label in PAY_METHOD_KEYS:
+        kb.add(types.InlineKeyboardButton(label, callback_data=f"admin_edit_pay_{key}"))
+    kb.add(types.InlineKeyboardButton("🔄 Regenerar texto", callback_data="admin_refresh_pay"))
+    kb.add(types.InlineKeyboardButton("« Admin", callback_data="admin_panel"))
+    bot.edit_message_text(text[:4000], call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_refresh_pay")
+def cb_admin_refresh_pay(call):
+    if not is_admin(call.from_user.id):
+        return
+    refresh_payment_methods_setting()
+    bot.answer_callback_query(call.id, "Texto actualizado")
+    cb_admin_pay_methods(call)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("admin_edit_pay_"))
+def cb_admin_edit_pay(call):
+    if not is_admin(call.from_user.id):
+        return
+    key = call.data.replace("admin_edit_pay_", "", 1)
+    labels = dict(PAY_METHOD_KEYS)
+    if key not in labels:
+        bot.answer_callback_query(call.id, "Método no válido", show_alert=True)
+        return
+    bot.answer_callback_query(call.id)
+    current = get_setting(key) or "—"
+    msg = bot.send_message(
+        call.message.chat.id,
+        f"Editar <b>{labels[key]}</b>\nActual: <code>{escape_html(current)}</code>\n\n"
+        f"Envía el nuevo texto (cuenta, CLABE, teléfono, instrucciones).\n"
+        f"Escribe <code>-</code> para dejarlo vacío.",
+    )
+    bot.register_next_step_handler(msg, process_admin_pay_value, key, labels[key])
+
+def process_admin_pay_value(message, key, label):
+    if not is_admin(message.from_user.id):
+        return
+    val = (message.text or "").strip()
+    if val == "-":
+        val = "—"
+    if len(val) > 500:
+        val = val[:500]
+    set_setting(key, val)
+    refresh_payment_methods_setting()
+    bot.send_message(message.chat.id, f"✅ {label} actualizado.\n<code>{escape_html(val)}</code>")
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_pending_tx")
+def cb_admin_pending_tx(call):
+    if not is_admin(call.from_user.id):
+        return
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT id, user_id, creator_id, type, amount, status, created_at, screenshot_file_id
+           FROM transactions WHERE status='pending' ORDER BY id DESC LIMIT 15"""
+    ).fetchall()
+    conn.close()
+    if not rows:
+        kb = types.InlineKeyboardMarkup()
+        kb.add(types.InlineKeyboardButton("« Admin", callback_data="admin_panel"))
+        bot.edit_message_text("No hay pagos pendientes.", call.message.chat.id, call.message.message_id, reply_markup=kb)
+        bot.answer_callback_query(call.id)
+        return
+    text = "⏳ <b>Pagos pendientes</b>\n\n"
+    kb = types.InlineKeyboardMarkup()
+    for r in rows:
+        text += f"#{r['id']} user {r['user_id']} → {r['creator_id'] or '-'} | {r['type']} {format_price(r['amount'])}\n"
+        kb.add(
+            types.InlineKeyboardButton(f"✅ #{r['id']}", callback_data=f"approve_tx_{r['id']}"),
+            types.InlineKeyboardButton(f"❌ #{r['id']}", callback_data=f"reject_tx_{r['id']}"),
+        )
+    kb.add(types.InlineKeyboardButton("« Admin", callback_data="admin_panel"))
+    bot.edit_message_text(text[:4000], call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_set_announcement")
+def cb_admin_set_announcement(call):
+    if not is_admin(call.from_user.id):
+        return
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, "Envía el nuevo texto de /anuncio del grupo:")
+    bot.register_next_step_handler(msg, lambda m: _admin_save_setting(m, "announcement", "Anuncio"))
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_set_terms")
+def cb_admin_set_terms(call):
+    if not is_admin(call.from_user.id):
+        return
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, "Envía el nuevo texto de términos (HTML básico permitido):")
+    bot.register_next_step_handler(msg, lambda m: _admin_save_setting(m, "terms", "Términos"))
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_set_rules")
+def cb_admin_set_rules(call):
+    if not is_admin(call.from_user.id):
+        return
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, "Envía el nuevo texto de /reglas del grupo:")
+    bot.register_next_step_handler(msg, lambda m: _admin_save_setting(m, "group_rules", "Reglas"))
+
+def _admin_save_setting(message, key, label):
+    if not is_admin(message.from_user.id):
+        return
+    val = (message.text or "").strip()
+    if not val:
+        bot.send_message(message.chat.id, "Vacío, no se guardó.")
+        return
+    set_setting(key, val[:4000])
+    bot.send_message(message.chat.id, f"✅ {label} actualizado.")
+
+@bot.callback_query_handler(func=lambda c: c.data == "admin_stats")
+def cb_admin_stats(call):
+    if not is_admin(call.from_user.id):
+        return
+    conn = get_db()
+    users_n = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    vip_n = conn.execute(
+        "SELECT COUNT(DISTINCT user_id) FROM subscriptions WHERE status='active'"
+    ).fetchone()[0]
+    fees = conn.execute(
+        "SELECT COALESCE(SUM(platform_fee),0) FROM transactions WHERE status='approved'"
+    ).fetchone()[0]
+    pending = conn.execute("SELECT COUNT(*) FROM transactions WHERE status='pending'").fetchone()[0]
+    conn.close()
+    text = (
+        f"📊 <b>Stats</b>\n\nUsuarios: {users_n}\nCon plan activo: {vip_n}\n"
+        f"Pendientes: {pending}\nComisiones: {format_price(fees)}"
+    )
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton("« Admin", callback_data="admin_panel"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+# Reply keyboard text shortcuts (private chat)
+@bot.message_handler(func=lambda m: m.chat.type == "private" and (m.text or "") in {
+    "🔍 Explorar", "🔎 Buscar", "⭐ Favoritos", "📋 Mis planes", "👤 Mi perfil",
+    "⚙️ Ajustes", "❓ Ayuda", "🏠 Menú",
+})
+def reply_keyboard_router(message):
+    if is_banned(message.from_user.id):
+        return
+    user = get_user(message.from_user.id)
+    lang = get_lang(tg_user=message.from_user)
+    if not user or not user["age_declared"] or not user["terms_accepted"] or not profile_is_complete(user):
+        show_login(message.chat.id, lang, message.from_user)
+        return
+    text = message.text or ""
+    uid = message.from_user.id
+    chat_id = message.chat.id
+    if text == "🏠 Menú":
+        send_main_menu(chat_id, uid, lang=lang)
+        return
+    if text == "🔎 Buscar":
+        msg = bot.send_message(chat_id, t("search_prompt", lang))
+        bot.register_next_step_handler(msg, process_search)
+        return
+    if text == "❓ Ayuda":
+        kb = types.InlineKeyboardMarkup()
+        kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+        bot.send_message(chat_id, t("help_text", lang), reply_markup=kb)
+        return
+    # For the rest: send a menu message the user can use with inline buttons
+    mapping = {
+        "🔍 Explorar": "menu_explore",
+        "⭐ Favoritos": "menu_favs",
+        "📋 Mis planes": "menu_subs",
+        "👤 Mi perfil": "menu_account",
+        "⚙️ Ajustes": "menu_settings",
+    }
+    data = mapping.get(text)
+    if not data:
+        return
+    # Create a disposable message and "click" via editing flow
+    sent = bot.send_message(chat_id, "⏳ Cargando...")
+    class _Msg:
+        pass
+    class _Call:
+        pass
+    m = _Msg()
+    m.chat = message.chat
+    m.message_id = sent.message_id
+    m.text = message.text
+    c = _Call()
+    c.from_user = message.from_user
+    c.message = m
+    c.id = "rk"
+    c.data = data
+    try:
+        if data == "menu_explore":
+            cb_explore(c)
+        elif data == "menu_favs":
+            cb_favs(c)
+        elif data == "menu_subs":
+            cb_subs(c)
+        elif data == "menu_account":
+            cb_account(c)
+        elif data == "menu_settings":
+            cb_settings(c)
+    except Exception as e:
+        bot.edit_message_text(f"Error: {e}", chat_id, sent.message_id)
+
 
 def validate_runtime_config():
     if not TELEGRAM_TOKEN or ":" not in TELEGRAM_TOKEN or TELEGRAM_TOKEN.startswith("PON_AQUI"):
