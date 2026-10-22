@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-OnlyFans_ManagerBot - V4
-- Mini App de verificación con cámara (documento + selfie)
-- Multilingüe (ES / EN según language_code)
+OnlyFans_ManagerBot - V5
+- Funciona en chat privado + grupo privado
+- Mini App de verificación con cámara
+- Multilingüe (ES / EN)
 - Pago obligatorio para ver contenido
 - Badges edad/género verificados por admin
-- Suscripciones, panel creador, admin, reportes
+- Suscripciones + acceso a canal/grupo privado
 """
 
 import telebot
@@ -16,15 +17,23 @@ from datetime import datetime, timedelta
 
 # ==================== CONFIGURACIÓN ====================
 TELEGRAM_TOKEN = "PON_AQUI_TU_TOKEN"          # Token de @OnlyFans_ManagerBot
-ADMIN_ID = 7653419875                         # Tu ID (el del repo)
-CREATOR_FEE = 50.0
+ADMIN_ID = 7653419875                         # Tu ID
 
-# URL de la Mini App de verificación (debe ser HTTPS)
-# Sube webapp/verification.html a GitHub Pages / Vercel / Cloudflare y pon la URL aquí
-WEBAPP_VERIFICATION_URL = "https://TU_DOMINIO.com/verification.html"
-
-# Invite del grupo (añade el bot al grupo para obtener ID numérico si lo necesitas)
+# --- GRUPO PRIVADO PRINCIPAL ---
+# 1. Crea un grupo privado o usa el que ya tienes
+# 2. Añade el bot como ADMINISTRADOR
+# 3. Obtén el ID numérico (con @userinfobot o reenviando mensaje)
+#    El ID de grupos privados empieza por -100
+GROUP_ID = None                               # Ejemplo: -1001234567890
 GROUP_INVITE = "https://t.me/+oMkBHSWhjf5lNTZh"
+
+# --- CANAL PRIVADO DE CONTENIDO (recomendado) ---
+# Crea un canal privado, añade el bot como admin y pon el ID aquí
+# El bot generará invite links automáticos cuando alguien pague
+PRIVATE_CHANNEL_ID = None                     # Ejemplo: -1009876543210
+
+CREATOR_FEE = 50.0
+WEBAPP_VERIFICATION_URL = "https://TU_DOMINIO.com/verification.html"
 
 DB_FILE = "bot.db"
 bot = telebot.TeleBot(TELEGRAM_TOKEN, parse_mode="HTML")
@@ -59,6 +68,8 @@ TEXTS = {
         "verif_done": "Ya estás verificado",
         "banned": "🚫 Tu cuenta está baneada.",
         "no_creators": "Aún no hay creadores verificados.",
+        "group_welcome": "👋 Bienvenido/a al grupo privado, {name}!\n\nUsa /start en el chat privado conmigo para registrarte y verificar tu cuenta.",
+        "use_private": "⚠️ Usa este bot en <b>chat privado</b> conmigo.\nEscribe /start aquí o ábreme en privado.",
         "help_text": (
             "❓ <b>Ayuda</b>\n\n"
             "• Solo puedes ver contenido si tienes <b>suscripción pagada</b>.\n"
@@ -96,6 +107,8 @@ TEXTS = {
         "verif_done": "You are already verified",
         "banned": "🚫 Your account is banned.",
         "no_creators": "There are no verified creators yet.",
+        "group_welcome": "👋 Welcome to the private group, {name}!\n\nUse /start in private chat with me to register and verify your account.",
+        "use_private": "⚠️ Please use this bot in <b>private chat</b>.\nSend /start here or open me in private.",
         "help_text": (
             "❓ <b>Help</b>\n\n"
             "• You can only view content with an <b>active paid subscription</b>.\n"
@@ -108,7 +121,6 @@ TEXTS = {
 }
 
 def get_lang(user_id: int = None, tg_user=None) -> str:
-    """Devuelve 'es' o 'en'"""
     if tg_user and getattr(tg_user, "language_code", None):
         return "es" if tg_user.language_code.lower().startswith("es") else "en"
     if user_id:
@@ -386,6 +398,14 @@ def get_gender_text(user, lang="es") -> str:
         return "Masculino" if lang == "es" else "Male"
     return "Femenino" if lang == "es" else "Female"
 
+def is_private_chat(message):
+    return message.chat.type == "private"
+
+def is_our_group(message):
+    if GROUP_ID is None:
+        return False
+    return message.chat.id == GROUP_ID
+
 # ==================== MENÚ PRINCIPAL ====================
 def main_menu_kb(user_id: int, lang: str):
     kb = types.InlineKeyboardMarkup(row_width=2)
@@ -420,6 +440,12 @@ def send_main_menu(chat_id, user_id, message_id=None, lang=None):
 # ==================== START + EDAD + TÉRMINOS ====================
 @bot.message_handler(commands=["start"])
 def cmd_start(message):
+    # Si está en grupo, redirigir a privado
+    if not is_private_chat(message):
+        lang = get_lang(tg_user=message.from_user)
+        bot.reply_to(message, t("use_private", lang))
+        return
+
     if is_banned(message.from_user.id):
         lang = get_lang(tg_user=message.from_user)
         bot.send_message(message.chat.id, t("banned", lang))
@@ -463,17 +489,19 @@ def cb_age(call):
     ask_terms(call.message.chat.id, lang, call.message.message_id)
 
 def ask_terms(chat_id, lang="es", message_id=None):
-    terms = get_setting("terms")
-    text = terms + ("\n\n¿Aceptas los términos?" if lang == "es" else "\n\nDo you accept the terms?")
+    text = get_setting("terms")
     kb = types.InlineKeyboardMarkup()
     kb.row(
         types.InlineKeyboardButton(t("terms_accept", lang), callback_data="terms_yes"),
         types.InlineKeyboardButton(t("terms_deny", lang), callback_data="terms_no")
     )
     if message_id:
-        bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
-    else:
-        bot.send_message(chat_id, text, reply_markup=kb)
+        try:
+            bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
+            return
+        except:
+            pass
+    bot.send_message(chat_id, text, reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data in ("terms_yes", "terms_no"))
 def cb_terms(call):
@@ -490,339 +518,31 @@ def cb_terms(call):
     bot.answer_callback_query(call.id)
     send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
 
-# ==================== MENÚS ====================
-@bot.callback_query_handler(func=lambda c: c.data == "menu_main")
-def cb_main(call):
-    lang = get_lang(call.from_user.id)
-    bot.answer_callback_query(call.id)
-    send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
-
-@bot.callback_query_handler(func=lambda c: c.data == "menu_explore")
-def cb_explore(call):
-    bot.answer_callback_query(call.id)
-    show_creators(call.message.chat.id, call.from_user.id, call.message.message_id, 0)
-
-def show_creators(chat_id, user_id, message_id=None, page=0):
-    lang = get_lang(user_id)
-    conn = get_db()
-    creators = conn.execute("""
-        SELECT c.*, u.username, u.first_name, u.age_verified_real, u.gender, u.gender_verified
-        FROM creators c JOIN users u ON u.user_id = c.user_id
-        WHERE u.creator_verified=2 AND u.banned=0
-        ORDER BY c.total_subscribers DESC
-    """).fetchall()
-    conn.close()
-
-    if not creators:
-        text = t("no_creators", lang)
-        kb = types.InlineKeyboardMarkup()
-        kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_main"))
-        if message_id:
-            bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
-        else:
-            bot.send_message(chat_id, text, reply_markup=kb)
+# ==================== BIENVENIDA EN GRUPO PRIVADO ====================
+@bot.message_handler(content_types=["new_chat_members"])
+def on_new_member(message):
+    if GROUP_ID and message.chat.id != GROUP_ID:
         return
-
-    per_page = 5
-    total = max(1, (len(creators) + per_page - 1) // per_page)
-    page = max(0, min(page, total - 1))
-    chunk = creators[page*per_page:(page+1)*per_page]
-
-    text = f"🔍 <b>{'Creadores' if lang=='es' else 'Creators'}</b> ({page+1}/{total})\n\n"
-    kb = types.InlineKeyboardMarkup()
-    for c in chunk:
-        badges = get_badges(c)
-        name = c["display_name"] or c["first_name"] or "Creator"
-        btn = f"{badges} {name} — {format_price(c['monthly_price'])}/mo"
-        kb.add(types.InlineKeyboardButton(btn, callback_data=f"creator_{c['user_id']}"))
-
-    nav = []
-    if page > 0:
-        nav.append(types.InlineKeyboardButton("«", callback_data=f"explore_page_{page-1}"))
-    if page < total - 1:
-        nav.append(types.InlineKeyboardButton("»", callback_data=f"explore_page_{page+1}"))
-    if nav:
-        kb.row(*nav)
-    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
-
-    if message_id:
-        bot.edit_message_text(text, chat_id, message_id, reply_markup=kb)
-    else:
-        bot.send_message(chat_id, text, reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("explore_page_"))
-def cb_explore_page(call):
-    page = int(call.data.split("_")[-1])
-    bot.answer_callback_query(call.id)
-    show_creators(call.message.chat.id, call.from_user.id, call.message.message_id, page)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("creator_") and c.data.count("_") == 1)
-def cb_creator_profile(call):
-    creator_id = int(call.data.split("_")[1])
-    lang = get_lang(call.from_user.id)
-    bot.answer_callback_query(call.id)
-
-    conn = get_db()
-    creator = conn.execute("""
-        SELECT c.*, u.first_name, u.age_verified_real, u.gender, u.gender_verified
-        FROM creators c JOIN users u ON u.user_id = c.user_id
-        WHERE c.user_id=? AND u.creator_verified=2
-    """, (creator_id,)).fetchone()
-    conn.close()
-
-    if not creator:
-        return
-
-    name = creator["display_name"] or creator["first_name"]
-    badges = get_badges(creator)
-    subscribed = has_active_sub(call.from_user.id, creator_id)
-
-    text = (
-        f"🎨 <b>{name}</b> {badges}\n\n"
-        f"{creator['bio'] or ''}\n\n"
-        f"🔞 {'Edad verificada' if creator['age_verified_real']==2 else 'Solo declarada'}\n"
-        f"Género: {get_gender_text(creator, lang)}\n\n"
-        f"💰 Monthly: <b>{format_price(creator['monthly_price'])}</b>\n"
-        f"💰 Quarterly: <b>{format_price(creator['quarterly_price'])}</b>\n"
-        f"👥 {creator['total_subscribers']}\n"
-    )
-
-    kb = types.InlineKeyboardMarkup()
-    if subscribed:
-        text += f"\n{t('has_sub', lang)}"
-        kb.add(types.InlineKeyboardButton(t("view_content", lang), callback_data=f"content_{creator_id}"))
-        kb.add(types.InlineKeyboardButton(t("cancel_sub", lang), callback_data=f"cancel_sub_{creator_id}"))
-    else:
-        text += f"\n{t('must_pay', lang)}"
-        kb.add(types.InlineKeyboardButton(f"Monthly {format_price(creator['monthly_price'])}", callback_data=f"sub_monthly_{creator_id}"))
-        kb.add(types.InlineKeyboardButton(f"Quarterly {format_price(creator['quarterly_price'])}", callback_data=f"sub_quarterly_{creator_id}"))
-
-    kb.add(types.InlineKeyboardButton(t("report", lang), callback_data=f"report_{creator_id}"))
-    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_explore"))
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
-
-# ==================== VERIFICACIÓN CON MINI APP (CÁMARA) ====================
-@bot.callback_query_handler(func=lambda c: c.data == "request_real_verification")
-def cb_request_verification(call):
-    user = get_user(call.from_user.id)
-    lang = get_lang(call.from_user.id)
-
-    if user["age_verified_real"] == 2:
-        bot.answer_callback_query(call.id, t("verif_done", lang), show_alert=True)
-        return
-    if user["age_verified_real"] == 1:
-        bot.answer_callback_query(call.id, t("verif_pending", lang), show_alert=True)
-        return
-
-    bot.answer_callback_query(call.id)
-
-    # Botón que abre la Mini App (Web App)
-    # Nota: para sendData completo es mejor KeyboardButton, pero Inline + web_app también abre la app
-    kb = types.InlineKeyboardMarkup()
-    if WEBAPP_VERIFICATION_URL and "TU_DOMINIO" not in WEBAPP_VERIFICATION_URL:
-        kb.add(types.InlineKeyboardButton(
-            t("request_verif", lang),
-            web_app=types.WebAppInfo(url=WEBAPP_VERIFICATION_URL)
-        ))
-    else:
-        # Fallback manual si aún no hay URL de Mini App
-        kb.add(types.InlineKeyboardButton(
-            "📸 Enviar fotos manualmente" if lang == "es" else "📸 Send photos manually",
-            callback_data="manual_verif_start"
-        ))
-
-    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_account"))
-
-    text = (
-        "📸 <b>Verificación con cámara</b>\n\n"
-        "Se abrirá una Mini App donde podrás usar la cámara para:\n"
-        "1. Foto del documento\n"
-        "2. Selfie con el documento\n\n"
-        "El administrador revisará y asignará edad + género verificados.\n"
-        "<b>Tú no eliges el sexo.</b>"
-    ) if lang == "es" else (
-        "📸 <b>Camera verification</b>\n\n"
-        "A Mini App will open so you can use the camera for:\n"
-        "1. Document photo\n"
-        "2. Selfie with the document\n\n"
-        "The admin will review and assign verified age + gender.\n"
-        "<b>You do not choose the gender.</b>"
-    )
-
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda c: c.data == "manual_verif_start")
-def cb_manual_verif(call):
-    lang = get_lang(call.from_user.id)
-    bot.answer_callback_query(call.id)
-    msg = bot.send_message(
-        call.message.chat.id,
-        "Envía primero la <b>foto del documento</b>." if lang == "es" else "Send the <b>document photo</b> first."
-    )
-    bot.register_next_step_handler(msg, receive_doc_manual)
-
-def receive_doc_manual(message):
-    if not message.photo:
-        bot.send_message(message.chat.id, "❌ Debes enviar una foto.")
-        return
-    doc_id = message.photo[-1].file_id
-    msg = bot.send_message(message.chat.id, "Ahora la <b>selfie con el documento</b>.")
-    bot.register_next_step_handler(msg, receive_selfie_manual, doc_id)
-
-def receive_selfie_manual(message, doc_id):
-    if not message.photo:
-        bot.send_message(message.chat.id, "❌ Debes enviar una foto.")
-        return
-    selfie_id = message.photo[-1].file_id
-
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO verifications (user_id, doc_photo_id, selfie_photo_id, status, source, created_at)
-        VALUES (?, ?, ?, 'pending', 'manual', ?)
-    """, (message.from_user.id, doc_id, selfie_id, datetime.now().isoformat()))
-    ver_id = cur.lastrowid
-    conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (message.from_user.id,))
-    conn.commit()
-    conn.close()
-
-    bot.send_message(message.chat.id, "✅ Fotos recibidas. El admin las revisará.")
-
-    username = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
-    admin_text = (
-        f"📝 <b>NUEVA VERIFICACIÓN</b>\n\n"
-        f"Usuario: {username} (<code>{message.from_user.id}</code>)\n"
-        f"Verificación #{ver_id}\n\nElige género:"
-    )
-    kb = types.InlineKeyboardMarkup()
-    kb.row(
-        types.InlineKeyboardButton("♂️ Hombre", callback_data=f"ver_approve_male_{ver_id}"),
-        types.InlineKeyboardButton("♀️ Mujer", callback_data=f"ver_approve_female_{ver_id}")
-    )
-    kb.add(types.InlineKeyboardButton("❌ Rechazar", callback_data=f"ver_reject_{ver_id}"))
-    bot.send_photo(ADMIN_ID, doc_id, caption="Documento")
-    bot.send_photo(ADMIN_ID, selfie_id, caption=admin_text, reply_markup=kb)
-
-# Handler cuando la Mini App envía datos con sendData
-@bot.message_handler(content_types=["web_app_data"])
-def handle_web_app_data(message):
-    try:
-        data = json.loads(message.web_app_data.data)
-    except:
-        return
-
-    if data.get("type") != "verification":
-        return
-
-    user_id = message.from_user.id
-    conn = get_db()
-    conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (user_id,))
-    cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO verifications (user_id, status, source, created_at)
-        VALUES (?, 'pending', 'webapp', ?)
-    """, (user_id, datetime.now().isoformat()))
-    ver_id = cur.lastrowid
-    conn.commit()
-    conn.close()
-
-    bot.send_message(
-        message.chat.id,
-        "✅ Verificación recibida desde la Mini App.\n"
-        "Por favor envía ahora las dos fotos (documento y selfie) para completar."
-    )
-    bot.send_message(
-        ADMIN_ID,
-        f"📱 Mini App verification started\nUser: {user_id}\nVer #{ver_id}\nEsperando fotos..."
-    )
-
-# ==================== APROBAR VERIFICACIÓN ====================
-@bot.callback_query_handler(func=lambda c: c.data.startswith(("ver_approve_male_", "ver_approve_female_", "ver_reject_")))
-def cb_review_verification(call):
-    if not is_admin(call.from_user.id):
-        bot.answer_callback_query(call.id, "No autorizado", show_alert=True)
-        return
-
-    parts = call.data.split("_")
-    action = parts[1]
-    gender = parts[2] if action == "approve" else None
-    ver_id = int(parts[-1])
-
-    conn = get_db()
-    ver = conn.execute("SELECT * FROM verifications WHERE id=?", (ver_id,)).fetchone()
-    if not ver or ver["status"] != "pending":
-        bot.answer_callback_query(call.id, "Ya procesada", show_alert=True)
-        conn.close()
-        return
-
-    if action == "approve":
-        conn.execute("""
-            UPDATE verifications SET status='approved', assigned_gender=?, reviewed_at=?, reviewed_by=?
-            WHERE id=?
-        """, (gender, datetime.now().isoformat(), call.from_user.id, ver_id))
-        conn.execute("""
-            UPDATE users SET age_verified_real=2, gender=?, gender_verified=1 WHERE user_id=?
-        """, (gender, ver["user_id"]))
-        conn.commit()
-
-        gender_text = "Masculino" if gender == "male" else "Femenino"
-        try:
-            bot.send_message(
-                ver["user_id"],
-                f"✅ <b>Verificación aprobada</b>\n\n"
-                f"Badges asignados:\n🔞✅ Edad Verificada\n"
-                f"{'\u2642\ufe0f' if gender=='male' else '\u2640\ufe0f'} Género Verificado ({gender_text})"
+    for member in message.new_chat_members:
+        if member.id == bot.get_me().id:
+            # El bot fue añadido al grupo
+            bot.send_message(message.chat.id,
+                "✅ Bot añadido correctamente.\n\n"
+                "Configura <code>GROUP_ID</code> en main.py con este ID:\n"
+                f"<code>{message.chat.id}</code>"
             )
-        except:
-            pass
+            continue
+        if member.is_bot:
+            continue
+        lang = get_lang(tg_user=member)
+        name = member.first_name or "Usuario"
+        bot.send_message(message.chat.id, t("group_welcome", lang, name=name))
 
-        bot.edit_message_caption(
-            caption=(call.message.caption or "") + f"\n\n✅ APROBADO ({gender_text})",
-            chat_id=call.message.chat.id, message_id=call.message.message_id
-        )
-        bot.answer_callback_query(call.id, f"Aprobado como {gender_text}")
-        log_admin(call.from_user.id, "approve_verification", ver["user_id"], f"gender={gender}")
-    else:
-        conn.execute("UPDATE verifications SET status='rejected', reviewed_at=?, reviewed_by=? WHERE id=?",
-                     (datetime.now().isoformat(), call.from_user.id, ver_id))
-        conn.execute("UPDATE users SET age_verified_real=0 WHERE user_id=?", (ver["user_id"],))
-        conn.commit()
-        try:
-            bot.send_message(ver["user_id"], "❌ Verificación rechazada. Puedes intentarlo de nuevo.")
-        except:
-            pass
-        bot.edit_message_caption(
-            caption=(call.message.caption or "") + "\n\n❌ RECHAZADO",
-            chat_id=call.message.chat.id, message_id=call.message.message_id
-        )
-        bot.answer_callback_query(call.id, "Rechazado")
-        log_admin(call.from_user.id, "reject_verification", ver["user_id"])
-
-    conn.close()
-
-# ==================== MI CUENTA ====================
-@bot.callback_query_handler(func=lambda c: c.data == "menu_account")
-def cb_account(call):
-    user = get_user(call.from_user.id)
+# ==================== MENÚS PRINCIPALES ====================
+@bot.callback_query_handler(func=lambda c: c.data == "menu_main")
+def cb_menu_main(call):
     lang = get_lang(call.from_user.id)
-    badges = get_badges(user)
-
-    text = (
-        f"👤 <b>Mi Cuenta</b> {badges}\n\n"
-        f"ID: <code>{user['user_id']}</code>\n"
-        f"Rol: {user['role']}\n"
-        f"Edad verificada: {'✅' if user['age_verified_real']==2 else '⏳' if user['age_verified_real']==1 else '❌'}\n"
-        f"Género: {get_gender_text(user, lang)}\n"
-    )
-
-    kb = types.InlineKeyboardMarkup()
-    if user["age_verified_real"] != 2:
-        kb.add(types.InlineKeyboardButton(t("request_verif", lang), callback_data="request_real_verification"))
-    if user["role"] == "user" and user["creator_verified"] != 2:
-        kb.add(types.InlineKeyboardButton("🎨 Become Creator ($50)", callback_data="become_creator"))
-    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
-
-    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    send_main_menu(call.message.chat.id, call.from_user.id, call.message.message_id, lang)
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda c: c.data == "menu_help")
@@ -833,229 +553,426 @@ def cb_help(call):
     bot.edit_message_text(t("help_text", lang), call.message.chat.id, call.message.message_id, reply_markup=kb)
     bot.answer_callback_query(call.id)
 
-@bot.callback_query_handler(func=lambda c: c.data == "menu_subs")
-def cb_my_subs(call):
+@bot.callback_query_handler(func=lambda c: c.data == "menu_account")
+def cb_account(call):
+    user = get_user(call.from_user.id)
     lang = get_lang(call.from_user.id)
-    conn = get_db()
-    subs = conn.execute("""
-        SELECT s.*, c.display_name FROM subscriptions s
-        JOIN creators c ON c.user_id = s.creator_id
-        WHERE s.user_id=? AND s.status='active' AND s.end_date > ?
-    """, (call.from_user.id, datetime.now().isoformat())).fetchall()
-    conn.close()
+    badges = get_badges(user)
+    gender = get_gender_text(user, lang)
+    role = user["role"] if user else "user"
 
-    text = "No active subscriptions." if not subs else "📋 <b>Subscriptions</b>\n\n" + "\n".join(
-        [f"• <b>{s['display_name']}</b> ({s['plan']}) → {s['end_date'][:10]}" for s in subs]
+    text = (
+        f"👤 <b>Mi Cuenta</b> {badges}\n\n"
+        f"ID: <code>{call.from_user.id}</code>\n"
+        f"Rol: {role}\n"
+        f"Género: {gender}\n"
+        f"Edad verificada: {'Sí 🔞✅' if user and user['age_verified_real'] == 2 else 'No'}\n"
     )
+
     kb = types.InlineKeyboardMarkup()
+    if not (user and user["age_verified_real"] == 2):
+        # Botón de Mini App para verificación con cámara
+        kb.add(types.InlineKeyboardButton(
+            t("request_verif", lang),
+            web_app=types.WebAppInfo(url=WEBAPP_VERIFICATION_URL)
+        ))
+    if user and user["creator_verified"] != 2:
+        kb.add(types.InlineKeyboardButton("🎨 Convertirme en Creador ($50)", callback_data="become_creator"))
     kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
     bot.answer_callback_query(call.id)
 
-# ==================== CONTENIDO (solo si pagó) ====================
-@bot.callback_query_handler(func=lambda c: c.data.startswith("content_"))
-def cb_content(call):
-    creator_id = int(call.data.split("_")[1])
-    if not has_active_sub(call.from_user.id, creator_id) and not is_admin(call.from_user.id):
-        bot.answer_callback_query(call.id, "Subscription required", show_alert=True)
-        return
-
-    conn = get_db()
-    items = conn.execute("SELECT * FROM content WHERE creator_id=? ORDER BY id DESC LIMIT 5", (creator_id,)).fetchall()
-    conn.close()
-
-    if not items:
-        bot.answer_callback_query(call.id, "No content yet", show_alert=True)
-        return
-
-    bot.answer_callback_query(call.id)
-    for item in items:
-        file_ids = json.loads(item["file_ids"])
-        media_types = json.loads(item["media_types"])
-        for fid, mtype in zip(file_ids, media_types):
-            try:
-                if mtype == "photo":
-                    bot.send_photo(call.message.chat.id, fid, protect_content=True)
-                elif mtype == "video":
-                    bot.send_video(call.message.chat.id, fid, protect_content=True)
-            except:
-                pass
-
-# ==================== SUSCRIPCIONES RÁPIDAS (pago manual) ====================
-@bot.callback_query_handler(func=lambda c: c.data.startswith("sub_"))
-def cb_subscribe(call):
-    parts = call.data.split("_")
-    plan, creator_id = parts[1], int(parts[2])
+@bot.callback_query_handler(func=lambda c: c.data == "menu_explore")
+def cb_explore(call):
     lang = get_lang(call.from_user.id)
-
-    if has_active_sub(call.from_user.id, creator_id):
-        bot.answer_callback_query(call.id, "Already subscribed", show_alert=True)
-        return
-
     conn = get_db()
-    creator = conn.execute("SELECT * FROM creators WHERE user_id=?", (creator_id,)).fetchone()
+    creators = conn.execute("""
+        SELECT c.*, u.first_name, u.gender, u.gender_verified, u.age_verified_real
+        FROM creators c
+        JOIN users u ON c.user_id = u.user_id
+        WHERE u.creator_verified = 2 AND u.banned = 0
+    """).fetchall()
     conn.close()
-    if not creator:
+
+    if not creators:
+        kb = types.InlineKeyboardMarkup()
+        kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+        bot.edit_message_text(t("no_creators", lang), call.message.chat.id, call.message.message_id, reply_markup=kb)
+        bot.answer_callback_query(call.id)
         return
 
-    amount = creator["monthly_price"] if plan == "monthly" else creator["quarterly_price"]
-    payment_methods = get_setting("payment_methods")
+    text = "🔍 <b>Creadores</b>\n\n"
+    kb = types.InlineKeyboardMarkup()
+    for c in creators:
+        badges = get_badges(c)
+        name = c["display_name"] or c["first_name"] or "Creador"
+        text += f"• {name} {badges} — {format_price(c['monthly_price'])}/mes\n"
+        kb.add(types.InlineKeyboardButton(
+            f"{name} {badges}",
+            callback_data=f"creator_{c['user_id']}"
+        ))
+    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("creator_"))
+def cb_creator_profile(call):
+    lang = get_lang(call.from_user.id)
+    creator_id = int(call.data.split("_")[1])
+    conn = get_db()
+    c = conn.execute("""
+        SELECT c.*, u.first_name, u.gender, u.gender_verified, u.age_verified_real
+        FROM creators c JOIN users u ON c.user_id = u.user_id
+        WHERE c.user_id=?
+    """, (creator_id,)).fetchone()
+    conn.close()
+
+    if not c:
+        bot.answer_callback_query(call.id, "No encontrado", show_alert=True)
+        return
+
+    badges = get_badges(c)
+    name = c["display_name"] or c["first_name"]
+    subscribed = has_active_sub(call.from_user.id, creator_id)
 
     text = (
-        f"💳 <b>{plan.capitalize()}</b> — {format_price(amount)}\n\n"
-        f"{payment_methods}\n\n"
-        "When paid, press the button and send the screenshot."
+        f"🎨 <b>{name}</b> {badges}\n\n"
+        f"{c['bio'] or ''}\n\n"
+        f"💰 Mensual: {format_price(c['monthly_price'])}\n"
+        f"💰 Trimestral: {format_price(c['quarterly_price'])}\n"
+    )
+
+    kb = types.InlineKeyboardMarkup()
+    if subscribed:
+        text += f"\n{t('has_sub', lang)}"
+        kb.add(types.InlineKeyboardButton(t("view_content", lang), callback_data=f"view_{creator_id}"))
+        kb.add(types.InlineKeyboardButton(t("cancel_sub", lang), callback_data=f"cancel_sub_{creator_id}"))
+    else:
+        text += f"\n{t('must_pay', lang)}"
+        kb.add(types.InlineKeyboardButton(
+            f"💳 Mensual {format_price(c['monthly_price'])}",
+            callback_data=f"sub_monthly_{creator_id}"
+        ))
+        kb.add(types.InlineKeyboardButton(
+            f"💳 Trimestral {format_price(c['quarterly_price'])}",
+            callback_data=f"sub_quarterly_{creator_id}"
+        ))
+    kb.add(types.InlineKeyboardButton(t("report", lang), callback_data=f"report_{creator_id}"))
+    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data="menu_explore"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
+
+# ==================== SUSCRIPCIONES Y PAGOS ====================
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("sub_"))
+def cb_subscribe(call):
+    parts = call.data.split("_")
+    plan = parts[1]  # monthly / quarterly
+    creator_id = int(parts[2])
+    lang = get_lang(call.from_user.id)
+
+    conn = get_db()
+    c = conn.execute("SELECT * FROM creators WHERE user_id=?", (creator_id,)).fetchone()
+    conn.close()
+    if not c:
+        bot.answer_callback_query(call.id, "Error", show_alert=True)
+        return
+
+    price = c["monthly_price"] if plan == "monthly" else c["quarterly_price"]
+    text = (
+        f"💳 <b>Suscripción {plan}</b>\n\n"
+        f"Precio: {format_price(price)}\n\n"
+        f"{get_setting('payment_methods')}\n\n"
+        f"Después de pagar, envía la <b>captura</b> del pago."
     )
     kb = types.InlineKeyboardMarkup()
-    kb.add(types.InlineKeyboardButton("💸 I paid — Send screenshot", callback_data=f"pay_sub_{plan}_{creator_id}"))
+    kb.add(types.InlineKeyboardButton("📸 Ya pagué - Enviar captura", callback_data=f"send_proof_{plan}_{creator_id}"))
     kb.add(types.InlineKeyboardButton(t("back", lang), callback_data=f"creator_{creator_id}"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
     bot.answer_callback_query(call.id)
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("pay_sub_"))
-def cb_pay_sub(call):
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("send_proof_"))
+def cb_send_proof(call):
     parts = call.data.split("_")
-    plan, creator_id = parts[2], int(parts[3])
+    plan = parts[2]
+    creator_id = int(parts[3])
     bot.answer_callback_query(call.id)
-    msg = bot.send_message(call.message.chat.id, "📸 Send the payment screenshot now.")
-    bot.register_next_step_handler(msg, process_sub_screenshot, plan, creator_id)
+    msg = bot.send_message(call.message.chat.id, "📸 Envía ahora la <b>captura del pago</b> (foto).")
+    bot.register_next_step_handler(msg, lambda m: process_payment_proof(m, plan, creator_id))
 
-def process_sub_screenshot(message, plan, creator_id):
+def process_payment_proof(message, plan, creator_id):
     if not message.photo:
-        bot.send_message(message.chat.id, "❌ Please send a photo.")
+        bot.send_message(message.chat.id, "❌ Envía una foto de la captura.")
         return
 
-    conn = get_db()
-    creator = conn.execute("SELECT * FROM creators WHERE user_id=?", (creator_id,)).fetchone()
-    if not creator:
-        conn.close()
-        return
-
-    amount = creator["monthly_price"] if plan == "monthly" else creator["quarterly_price"]
     file_id = message.photo[-1].file_id
+    conn = get_db()
+    c = conn.execute("SELECT * FROM creators WHERE user_id=?", (creator_id,)).fetchone()
+    amount = c["monthly_price"] if plan == "monthly" else c["quarterly_price"]
+
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO transactions (user_id, creator_id, type, amount, status, payment_method, screenshot_file_id, reference, created_at)
-        VALUES (?, ?, 'subscription', ?, 'pending', 'manual', ?, ?, ?)
-    """, (message.from_user.id, creator_id, amount, file_id, plan, datetime.now().isoformat()))
+        INSERT INTO transactions (user_id, creator_id, type, amount, status, payment_method, screenshot_file_id, created_at)
+        VALUES (?, ?, ?, ?, 'pending', 'manual', ?, ?)
+    """, (message.from_user.id, creator_id, f"sub_{plan}", amount, file_id, datetime.now().isoformat()))
     tx_id = cur.lastrowid
     conn.commit()
     conn.close()
 
-    bot.send_message(message.chat.id, "✅ Screenshot received. Waiting for admin approval.")
+    bot.send_message(message.chat.id, "✅ Captura recibida. Esperando verificación del administrador.")
 
-    username = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+    # Notificar al admin
     kb = types.InlineKeyboardMarkup()
     kb.row(
-        types.InlineKeyboardButton("✅ Approve", callback_data=f"approve_tx_{tx_id}"),
-        types.InlineKeyboardButton("❌ Reject", callback_data=f"reject_tx_{tx_id}")
+        types.InlineKeyboardButton("✅ Aprobar", callback_data=f"approve_tx_{tx_id}"),
+        types.InlineKeyboardButton("❌ Rechazar", callback_data=f"reject_tx_{tx_id}")
     )
-    bot.send_photo(ADMIN_ID, file_id, caption=
-        f"💰 SUBSCRIPTION\nUser: {username} ({message.from_user.id})\n"
-        f"Creator: {creator_id}\nPlan: {plan}\nAmount: {format_price(amount)}\nTX #{tx_id}",
-        reply_markup=kb)
+    caption = (
+        f"💳 <b>NUEVO PAGO</b>\n\n"
+        f"User: {message.from_user.id} (@{message.from_user.username})\n"
+        f"Creator: {creator_id}\n"
+        f"Plan: {plan}\n"
+        f"Monto: {format_price(amount)}\n"
+        f"TX #{tx_id}"
+    )
+    bot.send_photo(ADMIN_ID, file_id, caption=caption, reply_markup=kb)
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith(("approve_tx_", "reject_tx_")))
-def cb_review_tx(call):
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("approve_tx_"))
+def cb_approve_tx(call):
     if not is_admin(call.from_user.id):
         return
-    action = "approve" if call.data.startswith("approve_tx_") else "reject"
-    tx_id = int(call.data.split("_")[-1])
-
+    tx_id = int(call.data.split("_")[2])
     conn = get_db()
     tx = conn.execute("SELECT * FROM transactions WHERE id=?", (tx_id,)).fetchone()
     if not tx or tx["status"] != "pending":
-        bot.answer_callback_query(call.id, "Already processed", show_alert=True)
+        bot.answer_callback_query(call.id, "Ya procesado", show_alert=True)
         conn.close()
         return
 
-    if action == "approve":
-        conn.execute("UPDATE transactions SET status='completed', reviewed_at=? WHERE id=?",
-                     (datetime.now().isoformat(), tx_id))
-        if tx["type"] == "subscription":
-            plan = tx["reference"] or "monthly"
-            days = 30 if plan == "monthly" else 90
-            start, end = datetime.now(), datetime.now() + timedelta(days=days)
-            conn.execute("""
-                INSERT INTO subscriptions (user_id, creator_id, plan, amount, status, start_date, end_date, payment_method, created_at)
-                VALUES (?, ?, ?, ?, 'active', ?, ?, 'manual', ?)
-                ON CONFLICT(user_id, creator_id) DO UPDATE SET
-                    plan=excluded.plan, amount=excluded.amount, status='active',
-                    start_date=excluded.start_date, end_date=excluded.end_date
-            """, (tx["user_id"], tx["creator_id"], plan, tx["amount"],
-                  start.isoformat(), end.isoformat(), datetime.now().isoformat()))
-            conn.execute("UPDATE creators SET total_subscribers=total_subscribers+1, total_earnings=total_earnings+? WHERE user_id=?",
-                         (tx["amount"], tx["creator_id"]))
-            try:
-                bot.send_message(tx["user_id"], f"✅ Subscription activated until {end.strftime('%d/%m/%Y')}")
-            except:
-                pass
-        elif tx["type"] == "creator_fee":
-            conn.execute("UPDATE users SET role='creator', creator_verified=2 WHERE user_id=?", (tx["user_id"],))
-            conn.execute("INSERT OR IGNORE INTO creators (user_id, display_name, created_at) VALUES (?, 'New Creator', ?)",
-                         (tx["user_id"], datetime.now().isoformat()))
-            try:
-                bot.send_message(tx["user_id"], "🎉 You are now a verified Creator!")
-            except:
-                pass
+    now = datetime.now()
+    if tx["type"] == "creator_fee":
+        conn.execute("UPDATE users SET role='creator', creator_verified=2 WHERE user_id=?", (tx["user_id"],))
+        conn.execute("""
+            INSERT OR IGNORE INTO creators (user_id, display_name, bio, created_at)
+            VALUES (?, ?, 'Nuevo creador', ?)
+        """, (tx["user_id"], f"Creator {tx['user_id']}", now.isoformat()))
+        conn.execute("UPDATE transactions SET status='approved', reviewed_at=? WHERE id=?", (now.isoformat(), tx_id))
         conn.commit()
-        bot.edit_message_caption(caption=(call.message.caption or "") + "\n\n✅ APPROVED",
-                                 chat_id=call.message.chat.id, message_id=call.message.message_id)
-        bot.answer_callback_query(call.id, "Approved")
-    else:
-        conn.execute("UPDATE transactions SET status='rejected', reviewed_at=? WHERE id=?",
-                     (datetime.now().isoformat(), tx_id))
-        conn.commit()
+        conn.close()
+        bot.send_message(tx["user_id"], "✅ ¡Has sido aprobado como <b>Creador</b>!")
+        bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption=call.message.caption + "\n\n✅ APROBADO")
+        bot.answer_callback_query(call.id, "Creador aprobado")
+        return
+
+    # Suscripción
+    days = 30 if "monthly" in tx["type"] else 90
+    end = (now + timedelta(days=days)).isoformat()
+    conn.execute("""
+        INSERT OR REPLACE INTO subscriptions
+        (user_id, creator_id, plan, amount, status, start_date, end_date, payment_method, created_at)
+        VALUES (?, ?, ?, ?, 'active', ?, ?, 'manual', ?)
+    """, (tx["user_id"], tx["creator_id"], tx["type"], tx["amount"], now.isoformat(), end, now.isoformat()))
+    conn.execute("UPDATE creators SET total_subscribers = total_subscribers + 1, total_earnings = total_earnings + ? WHERE user_id=?",
+                 (tx["amount"], tx["creator_id"]))
+    conn.execute("UPDATE transactions SET status='approved', reviewed_at=? WHERE id=?", (now.isoformat(), tx_id))
+    conn.commit()
+    conn.close()
+
+    # Generar invite link al canal privado si está configurado
+    invite_msg = ""
+    if PRIVATE_CHANNEL_ID:
         try:
-            bot.send_message(tx["user_id"], "❌ Payment rejected.")
-        except:
-            pass
-        bot.edit_message_caption(caption=(call.message.caption or "") + "\n\n❌ REJECTED",
-                                 chat_id=call.message.chat.id, message_id=call.message.message_id)
-        bot.answer_callback_query(call.id, "Rejected")
-    conn.close()
+            link = bot.create_chat_invite_link(
+                PRIVATE_CHANNEL_ID,
+                member_limit=1,
+                name=f"Sub user {tx['user_id']}"
+            )
+            invite_msg = f"\n\n🔗 Acceso al contenido privado:\n{link.invite_link}"
+        except Exception as e:
+            invite_msg = f"\n\n⚠️ No se pudo generar invite automático. Contacta al admin."
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("cancel_sub_"))
-def cb_cancel_sub(call):
-    creator_id = int(call.data.split("_")[-1])
+    bot.send_message(tx["user_id"],
+        f"✅ <b>Pago aprobado</b>\n\n"
+        f"Tu suscripción está activa hasta {end[:10]}."
+        f"{invite_msg}"
+    )
+    bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption=call.message.caption + "\n\n✅ APROBADO")
+    bot.answer_callback_query(call.id, "Pago aprobado")
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("reject_tx_"))
+def cb_reject_tx(call):
+    if not is_admin(call.from_user.id):
+        return
+    tx_id = int(call.data.split("_")[2])
     conn = get_db()
-    conn.execute("UPDATE subscriptions SET status='cancelled' WHERE user_id=? AND creator_id=? AND status='active'",
-                 (call.from_user.id, creator_id))
+    tx = conn.execute("SELECT * FROM transactions WHERE id=?", (tx_id,)).fetchone()
+    if not tx or tx["status"] != "pending":
+        bot.answer_callback_query(call.id, "Ya procesado", show_alert=True)
+        conn.close()
+        return
+    conn.execute("UPDATE transactions SET status='rejected', reviewed_at=? WHERE id=?",
+                 (datetime.now().isoformat(), tx_id))
+    if tx["type"] == "creator_fee":
+        conn.execute("UPDATE users SET creator_verified=0 WHERE user_id=?", (tx["user_id"],))
     conn.commit()
     conn.close()
-    bot.answer_callback_query(call.id, "Cancelled")
-    bot.edit_message_text("Subscription cancelled.", call.message.chat.id, call.message.message_id,
-                          reply_markup=types.InlineKeyboardMarkup().add(
-                              types.InlineKeyboardButton("« Back", callback_data=f"creator_{creator_id}")))
+    bot.send_message(tx["user_id"], "❌ Tu pago fue rechazado. Contacta al administrador.")
+    bot.edit_message_caption(call.message.chat.id, call.message.message_id, caption=call.message.caption + "\n\n❌ RECHAZADO")
+    bot.answer_callback_query(call.id, "Rechazado")
 
-@bot.callback_query_handler(func=lambda c: c.data.startswith("report_"))
-def cb_report(call):
-    reported_id = int(call.data.split("_")[1])
-    lang = get_lang(call.from_user.id)
-    kb = types.InlineKeyboardMarkup()
-    for label, code in [("Inappropriate", "inappropriate"), ("Spam", "spam"), ("Underage", "underage"), ("Other", "other")]:
-        kb.add(types.InlineKeyboardButton(label, callback_data=f"report_reason_{reported_id}_{code}"))
-    kb.add(types.InlineKeyboardButton(t("back", lang), callback_data=f"creator_{reported_id}"))
-    bot.edit_message_text("Select reason:", call.message.chat.id, call.message.message_id, reply_markup=kb)
-    bot.answer_callback_query(call.id)
-
-@bot.callback_query_handler(func=lambda c: c.data.startswith("report_reason_"))
-def cb_report_reason(call):
-    parts = call.data.split("_")
-    reported_id, reason = int(parts[2]), parts[3]
-    conn = get_db()
-    conn.execute("INSERT INTO reports (reporter_id, reported_id, reason, status, created_at) VALUES (?,?,?,'open',?)",
-                 (call.from_user.id, reported_id, reason, datetime.now().isoformat()))
-    conn.commit()
-    conn.close()
-    bot.answer_callback_query(call.id, "Report sent")
-    bot.edit_message_text("✅ Report sent.", call.message.chat.id, call.message.message_id,
-                          reply_markup=types.InlineKeyboardMarkup().add(
-                              types.InlineKeyboardButton("« Back", callback_data=f"creator_{reported_id}")))
+# ==================== VERIFICACIÓN (Mini App + fotos) ====================
+@bot.message_handler(content_types=["web_app_data"])
+def handle_webapp(message):
+    """Recibe datos de la Mini App de verificación"""
     try:
-        bot.send_message(ADMIN_ID, f"📢 Report\nFrom: {call.from_user.id}\nTarget: {reported_id}\nReason: {reason}")
+        data = json.loads(message.web_app_data.data)
     except:
-        pass
+        bot.send_message(message.chat.id, "Error al procesar verificación.")
+        return
+
+    user_id = message.from_user.id
+    conn = get_db()
+    # Marcar como pendiente de revisión
+    conn.execute("""
+        INSERT INTO verifications (user_id, status, source, created_at)
+        VALUES (?, 'pending', 'webapp', ?)
+    """, (user_id, datetime.now().isoformat()))
+    conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (user_id,))
+    conn.commit()
+    conn.close()
+
+    bot.send_message(message.chat.id,
+        "📸 Datos de verificación recibidos.\n"
+        "Ahora envía las <b>fotos</b> (documento + selfie) para que el admin las revise."
+    )
+    bot.send_message(ADMIN_ID,
+        f"📸 Nueva solicitud de verificación (Mini App)\nUsuario: {user_id}\nEsperando fotos..."
+    )
+
+@bot.message_handler(content_types=["photo"])
+def handle_photo(message):
+    """Recibe fotos de verificación"""
+    if not is_private_chat(message):
+        return
+    user = get_user(message.from_user.id)
+    if not user or user["age_verified_real"] == 2:
+        return  # Ya verificado o no en proceso
+
+    file_id = message.photo[-1].file_id
+    conn = get_db()
+    ver = conn.execute("""
+        SELECT * FROM verifications WHERE user_id=? AND status='pending'
+        ORDER BY id DESC LIMIT 1
+    """, (message.from_user.id,)).fetchone()
+
+    if not ver:
+        # Crear nueva si no existe
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO verifications (user_id, doc_photo_id, status, source, created_at)
+            VALUES (?, ?, 'pending', 'manual', ?)
+        """, (message.from_user.id, file_id, datetime.now().isoformat()))
+        conn.execute("UPDATE users SET age_verified_real=1 WHERE user_id=?", (message.from_user.id,))
+        conn.commit()
+        conn.close()
+        bot.send_message(message.chat.id, "📸 Foto de documento recibida. Ahora envía tu <b>selfie</b> (cara + documento).")
+        return
+
+    if not ver["doc_photo_id"]:
+        conn.execute("UPDATE verifications SET doc_photo_id=? WHERE id=?", (file_id, ver["id"]))
+        conn.commit()
+        conn.close()
+        bot.send_message(message.chat.id, "📸 Documento recibido. Ahora envía tu <b>selfie</b>.")
+        return
+
+    if not ver["selfie_photo_id"]:
+        conn.execute("UPDATE verifications SET selfie_photo_id=? WHERE id=?", (file_id, ver["id"]))
+        conn.commit()
+        conn.close()
+        bot.send_message(message.chat.id, "✅ Fotos recibidas. Esperando revisión del administrador.")
+
+        # Enviar al admin
+        kb = types.InlineKeyboardMarkup()
+        kb.row(
+            types.InlineKeyboardButton("♂️ Hombre", callback_data=f"verif_male_{ver['id']}"),
+            types.InlineKeyboardButton("♀️ Mujer", callback_data=f"verif_female_{ver['id']}")
+        )
+        kb.add(types.InlineKeyboardButton("❌ Rechazar", callback_data=f"verif_reject_{ver['id']}"))
+
+        bot.send_message(ADMIN_ID, f"📸 <b>Verificación pendiente</b>\nUsuario: {message.from_user.id}")
+        bot.send_photo(ADMIN_ID, ver["doc_photo_id"] or file_id, caption="Documento")
+        bot.send_photo(ADMIN_ID, file_id, caption="Selfie", reply_markup=kb)
+        return
+
+    conn.close()
+
+@bot.callback_query_handler(func=lambda c: c.data and c.data.startswith("verif_"))
+def cb_verify(call):
+    if not is_admin(call.from_user.id):
+        return
+    parts = call.data.split("_")
+    action = parts[1]  # male / female / reject
+    ver_id = int(parts[2])
+
+    conn = get_db()
+    ver = conn.execute("SELECT * FROM verifications WHERE id=?", (ver_id,)).fetchone()
+    if not ver or ver["status"] != "pending":
+        bot.answer_callback_query(call.id, "Ya procesado", show_alert=True)
+        conn.close()
+        return
+
+    now = datetime.now().isoformat()
+    if action == "reject":
+        conn.execute("UPDATE verifications SET status='rejected', reviewed_at=?, reviewed_by=? WHERE id=?",
+                     (now, call.from_user.id, ver_id))
+        conn.execute("UPDATE users SET age_verified_real=0 WHERE user_id=?", (ver["user_id"],))
+        conn.commit()
+        conn.close()
+        bot.send_message(ver["user_id"], "❌ Tu verificación fue rechazada.")
+        bot.answer_callback_query(call.id, "Rechazado")
+        return
+
+    gender = "male" if action == "male" else "female"
+    conn.execute("""
+        UPDATE verifications SET status='approved', assigned_gender=?, reviewed_at=?, reviewed_by=?
+        WHERE id=?
+    """, (gender, now, call.from_user.id, ver_id))
+    conn.execute("""
+        UPDATE users SET age_verified_real=2, gender=?, gender_verified=1
+        WHERE user_id=?
+    """, (gender, ver["user_id"]))
+    conn.commit()
+    conn.close()
+
+    badge = "♂️" if gender == "male" else "♀️"
+    bot.send_message(ver["user_id"],
+        f"✅ <b>Verificación aprobada</b>\n\n"
+        f"Has recibido los badges: 🔞✅ {badge}"
+    )
+    bot.answer_callback_query(call.id, f"Aprobado como {gender}")
+
+# ==================== OTRAS FUNCIONES ====================
+@bot.callback_query_handler(func=lambda c: c.data == "menu_subs")
+def cb_subs(call):
+    lang = get_lang(call.from_user.id)
+    conn = get_db()
+    subs = conn.execute("""
+        SELECT s.*, c.display_name FROM subscriptions s
+        JOIN creators c ON s.creator_id = c.user_id
+        WHERE s.user_id=? AND s.status='active' AND s.end_date > ?
+    """, (call.from_user.id, datetime.now().isoformat())).fetchall()
+    conn.close()
+
+    if not subs:
+        text = "No tienes suscripciones activas." if lang == "es" else "You have no active subscriptions."
+    else:
+        text = "📋 <b>Mis Suscripciones</b>\n\n"
+        for s in subs:
+            text += f"• {s['display_name']} — hasta {s['end_date'][:10]}\n"
+
+    kb = types.InlineKeyboardMarkup()
+    kb.add(types.InlineKeyboardButton(t("back_menu", lang), callback_data="menu_main"))
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
+    bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda c: c.data == "become_creator")
 def cb_become_creator(call):
@@ -1100,7 +1017,6 @@ def process_creator_fee(message):
     )
     bot.send_photo(ADMIN_ID, file_id, caption=f"🎨 CREATOR FEE\nUser: {message.from_user.id}\nTX #{tx_id}", reply_markup=kb)
 
-# ==================== PANEL ADMIN BÁSICO ====================
 @bot.callback_query_handler(func=lambda c: c.data == "admin_panel")
 def cb_admin_panel(call):
     if not is_admin(call.from_user.id):
@@ -1109,7 +1025,14 @@ def cb_admin_panel(call):
     pending_tx = conn.execute("SELECT COUNT(*) FROM transactions WHERE status='pending'").fetchone()[0]
     pending_ver = conn.execute("SELECT COUNT(*) FROM verifications WHERE status='pending'").fetchone()[0]
     conn.close()
-    text = f"🔧 <b>Admin Panel</b>\n\nPending TX: {pending_tx}\nPending verifications: {pending_ver}\nGroup: {GROUP_INVITE}"
+    text = (
+        f"🔧 <b>Admin Panel</b>\n\n"
+        f"Pending TX: {pending_tx}\n"
+        f"Pending verifications: {pending_ver}\n"
+        f"Group: {GROUP_INVITE}\n"
+        f"GROUP_ID: {GROUP_ID or 'No configurado'}\n"
+        f"PRIVATE_CHANNEL_ID: {PRIVATE_CHANNEL_ID or 'No configurado'}"
+    )
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("« Menu", callback_data="menu_main"))
     bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=kb)
@@ -1132,8 +1055,10 @@ def cb_creator_panel(call):
 # ==================== ARRANQUE ====================
 if __name__ == "__main__":
     init_db()
-    print("OnlyFans_ManagerBot V4 started")
+    print("OnlyFans_ManagerBot V5 started")
     print(f"Admin ID: {ADMIN_ID}")
     print(f"WebApp URL: {WEBAPP_VERIFICATION_URL}")
-    print(f"Group: {GROUP_INVITE}")
+    print(f"Group Invite: {GROUP_INVITE}")
+    print(f"GROUP_ID: {GROUP_ID}")
+    print(f"PRIVATE_CHANNEL_ID: {PRIVATE_CHANNEL_ID}")
     bot.infinity_polling()
