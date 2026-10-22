@@ -1,43 +1,57 @@
-# 💖 Bot Telegram tipo OnlyFans — V3
+# OnlyFans_ManagerBot — V4
 
-## Novedades V3 (prioridad 1-5)
+Bot tipo OnlyFans con:
 
-1. **Telegram Stars** preparado (invoices XTR)
-2. **Invite links automáticos** al canal privado del creador
-3. **Botón Reportar** + moderación mejorada
-4. **Verificación real** con foto de documento + selfie (admin aprueba género y edad)
-5. **Cancelar suscripción** + estado claro
+- Verificación de edad/género mediante **Telegram Mini App** (cámara)
+- Multilingüe (Español / Inglés según language_code del usuario)
+- Pago obligatorio para ver contenido
+- Badges `🔞✅` y `♂️/♀️`
+- Suscripciones, panel creador, admin, reportes, etc.
 
-### Verificación real
-- El usuario **no elige** el sexo.
-- Para obtener badges debe subir:
-  1. Foto del documento (DNI/Pasaporte)
-  2. Selfie sosteniendo el documento
-- El **admin revisa** y asigna:
-  - Edad verificada → badge `🔞✅`
-  - Género verificado → badge `♂️` o `♀️`
-- Sin verificación real los perfiles muestran solo declaración básica.
+## Nombre del bot
+**OnlyFans_ManagerBot**
 
-### Acceso al contenido
-- **Solo se ve contenido si hay suscripción activa y pagada**.
+## Admin ID
+El mismo que ya tenías en el repo (`7653419875`).
 
-### Badges en perfiles
-```
-🔞✅ Edad Verificada   ♂️ Género Verificado
-```
+## Grupo
+Invite: https://t.me/+oMkBHSWhjf5lNTZh  
+(Añade el bot al grupo para obtener el ID numérico si lo necesitas).
 
-## Configuración
+## Mini App de verificación
+
+Archivo: `webapp/verification.html`
+
+### Cómo usarla
+
+1. Sube `webapp/verification.html` a un hosting HTTPS (GitHub Pages, Cloudflare Pages, Vercel, Netlify, etc.).
+2. En @BotFather → tu bot → Bot Settings → Configure Mini App → pon la URL de la página.
+3. En el código del bot (main.py) cambia:
 
 ```python
-TELEGRAM_TOKEN = "tu_token"
-ADMIN_ID = 123456789
-CREATOR_FEE = 50.0
+WEBAPP_VERIFICATION_URL = "https://tu-dominio.com/verification.html"
 ```
 
-## Flujo de verificación real (creadores y usuarios que quieran badges)
+4. El bot abrirá la Mini App con un botón. El usuario usa la cámara, captura documento + selfie y envía.
 
-1. Botón “Solicitar verificación real”
-2. Envía foto del documento
-3. Envía selfie con el documento
-4. Admin recibe ambas fotos + botones para aprobar y elegir género
-5. Se asignan los badges
+**Nota importante:**  
+`Telegram.WebApp.sendData()` tiene límite de 4096 bytes y solo funciona si se abre con **KeyboardButton** de tipo `web_app`.  
+Para fotos reales se recomienda que la Mini App suba las imágenes a tu backend o que el usuario las reenvíe al bot después de capturarlas. La versión actual deja el flujo listo y marca la solicitud como pendiente para revisión del admin.
+
+## Multilingüe
+El bot detecta `language_code` de Telegram y responde en español o inglés.
+
+## Instalación
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+Configura en `main.py`:
+
+```python
+TELEGRAM_TOKEN = "token_de_OnlyFans_ManagerBot"
+ADMIN_ID = 7653419875
+WEBAPP_VERIFICATION_URL = "https://tu-url-de-la-mini-app"
+```

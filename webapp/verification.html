@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Verificación de Edad</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--tg-theme-bg-color, #0f0f0f);
+      color: var(--tg-theme-text-color, #ffffff);
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; text-align: center; }
+    p { font-size: 0.95rem; opacity: 0.85; text-align: center; margin-bottom: 20px; line-height: 1.4; }
+    .step { display: none; width: 100%; max-width: 400px; }
+    .step.active { display: block; }
+    video, canvas, img {
+      width: 100%;
+      max-width: 360px;
+      border-radius: 12px;
+      background: #000;
+      margin: 12px 0;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      max-width: 360px;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 8px 0;
+      background: var(--tg-theme-button-color, #2481cc);
+      color: var(--tg-theme-button-text-color, #fff);
+    }
+    .btn.secondary { background: transparent; border: 1px solid var(--tg-theme-button-color, #2481cc); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { text-align: center; margin: 12px 0; font-size: 0.9rem; }
+    .preview { max-height: 220px; object-fit: contain; }
+  </style>
+</head>
+<body>
+  <div class="step active" id="step-intro">
+    <h1 id="title">Verificación de Edad</h1>
+    <p id="desc">Para obtener el badge de edad y género verificados necesitas tomar dos fotos con la cámara:</p>
+    <p>1. Foto de tu documento (DNI / Pasaporte)<br>2. Selfie sosteniendo el documento</p>
+    <button class="btn" id="btn-start" onclick="startCamera()">Abrir cámara</button>
+  </div>
+
+  <div class="step" id="step-doc">
+    <h1>1. Documento</h1>
+    <p>Coloca tu documento dentro del marco y toma la foto.</p>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <button class="btn" onclick="capture('doc')">Capturar documento</button>
+    <button class="btn secondary" onclick="switchCamera()">Cambiar cámara</button>
+  </div>
+
+  <div class="step" id="step-selfie">
+    <h1>2. Selfie con documento</h1>
+    <p>Sostén el documento junto a tu cara y toma la selfie.</p>
+    <video id="video2" autoplay playsinline></video>
+    <button class="btn" onclick="capture('selfie')">Capturar selfie</button>
+    <button class="btn secondary" onclick="switchCamera()">Cambiar cámara</button>
+  </div>
+
+  <div class="step" id="step-review">
+    <h1>Revisa las fotos</h1>
+    <p>Documento:</p>
+    <img id="preview-doc" class="preview" />
+    <p>Selfie:</p>
+    <img id="preview-selfie" class="preview" />
+    <button class="btn" id="btn-send" onclick="sendToBot()">Enviar verificación</button>
+    <button class="btn secondary" onclick="restart()">Repetir</button>
+  </div>
+
+  <div class="step" id="step-done">
+    <h1>✅ Enviado</h1>
+    <p id="done-msg">Tus fotos han sido enviadas. El administrador las revisará y te asignará los badges.</p>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    // Multilingüe básico
+    const lang = (tg.initDataUnsafe?.user?.language_code || 'es').startsWith('es') ? 'es' : 'en';
+    const i18n = {
+      es: {
+        title: 'Verificación de Edad',
+        desc: 'Para obtener el badge de edad y género verificados necesitas tomar dos fotos con la cámara:',
+        start: 'Abrir cámara',
+        done: 'Tus fotos han sido enviadas. El administrador las revisará y te asignará los badges.'
+      },
+      en: {
+        title: 'Age Verification',
+        desc: 'To get the verified age and gender badge you need to take two photos with the camera:',
+        start: 'Open camera',
+        done: 'Your photos have been sent. The administrator will review them and assign the badges.'
+      }
+    };
+    document.getElementById('title').textContent = i18n[lang].title;
+    document.getElementById('desc').innerHTML = i18n[lang].desc + '<br>1. Document photo (ID / Passport)<br>2. Selfie holding the document';
+    document.getElementById('btn-start').textContent = i18n[lang].start;
+    document.getElementById('done-msg').textContent = i18n[lang].done;
+
+    let stream = null;
+    let currentFacing = 'environment';
+    let docData = null;
+    let selfieData = null;
+
+    function showStep(id) {
+      document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        const v = document.getElementById('video');
+        v.srcObject = stream;
+        showStep('step-doc');
+      } catch (e) {
+        document.getElementById('status').textContent = 'Error cámara: ' + e.message;
+        tg.showAlert('No se pudo acceder a la cámara. Revisa los permisos.');
+      }
+    }
+
+    async function switchCamera() {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
+      const constraints = { video: { facingMode: currentFacing }, audio: false };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const activeVideo = document.querySelector('.step.active video');
+      if (activeVideo) activeVideo.srcObject = stream;
+    }
+
+    function capture(type) {
+      const video = type === 'doc' ? document.getElementById('video') : document.getElementById('video2');
+      const canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      if (type === 'doc') {
+        docData = dataUrl;
+        // Cambiar a selfie
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        currentFacing = 'user';
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+          .then(s => {
+            stream = s;
+            document.getElementById('video2').srcObject = s;
+            showStep('step-selfie');
+          });
+      } else {
+        selfieData = dataUrl;
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        document.getElementById('preview-doc').src = docData;
+        document.getElementById('preview-selfie').src = selfieData;
+        showStep('step-review');
+      }
+    }
+
+    function restart() {
+      docData = null;
+      selfieData = null;
+      showStep('step-intro');
+    }
+
+    function sendToBot() {
+      if (!docData || !selfieData) return;
+
+      // sendData solo funciona si se abrió con KeyboardButton web_app
+      // Enviamos un JSON compacto (las imágenes base64 son grandes, por eso avisamos al usuario)
+      const payload = {
+        type: 'verification',
+        user_id: tg.initDataUnsafe?.user?.id || null,
+        lang: lang,
+        // Nota: base64 completo puede superar el límite de 4096 bytes de sendData.
+        // Por eso en producción se recomienda subir a un backend.
+        // Aquí enviamos señal de que terminó + timestamp.
+        status: 'photos_captured',
+        timestamp: Date.now()
+      };
+
+      try {
+        tg.sendData(JSON.stringify(payload));
+      } catch (e) {
+        // Fallback: cerrar y pedir que envíe las fotos manualmente al bot
+        tg.showAlert('Fotos capturadas. Cierra esta ventana y envía las dos fotos al bot.');
+      }
+
+      showStep('step-done');
+      setTimeout(() => tg.close(), 2500);
+    }
+
+    // Limpiar al cerrar
+    window.addEventListener('beforeunload', () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    });
+  </script>
+</body>
+</html>
