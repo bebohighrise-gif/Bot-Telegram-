@@ -1,57 +1,163 @@
-# OnlyFans_ManagerBot — V4
+# OnlyFans_ManagerBot — Guía completa de creación en Telegram
 
-Bot tipo OnlyFans con:
+## 1. Crear / configurar el BOT en @BotFather
 
-- Verificación de edad/género mediante **Telegram Mini App** (cámara)
-- Multilingüe (Español / Inglés según language_code del usuario)
-- Pago obligatorio para ver contenido
-- Badges `🔞✅` y `♂️/♀️`
-- Suscripciones, panel creador, admin, reportes, etc.
+1. Abre Telegram y busca **@BotFather**
+2. Envía `/newbot` (o usa el bot que ya tienes)
+3. Nombre visible: `OnlyFans Manager` (o el que quieras)
+4. Username: debe terminar en `bot`, ejemplo: `OnlyFans_ManagerBot`
+5. Copia el **TOKEN** que te da (formato `123456:ABC-DEF...`)
 
-## Nombre del bot
-**OnlyFans_ManagerBot**
+### Configuraciones obligatorias en BotFather
 
-## Admin ID
-El mismo que ya tenías en el repo (`7653419875`).
+Envía estos comandos a @BotFather:
 
-## Grupo
-Invite: https://t.me/+oMkBHSWhjf5lNTZh  
-(Añade el bot al grupo para obtener el ID numérico si lo necesitas).
-
-## Mini App de verificación
-
-Archivo: `webapp/verification.html`
-
-### Cómo usarla
-
-1. Sube `webapp/verification.html` a un hosting HTTPS (GitHub Pages, Cloudflare Pages, Vercel, Netlify, etc.).
-2. En @BotFather → tu bot → Bot Settings → Configure Mini App → pon la URL de la página.
-3. En el código del bot (main.py) cambia:
-
-```python
-WEBAPP_VERIFICATION_URL = "https://tu-dominio.com/verification.html"
+```
+/setdescription
+```
+Elige tu bot y pon algo como:
+```
+Plataforma de contenido exclusivo. Solo mayores de 18. Verificación de edad y género.
 ```
 
-4. El bot abrirá la Mini App con un botón. El usuario usa la cámara, captura documento + selfie y envía.
+```
+/setabouttext
+```
+```
+OnlyFans Manager Bot - Contenido exclusivo con verificación real
+```
 
-**Nota importante:**  
-`Telegram.WebApp.sendData()` tiene límite de 4096 bytes y solo funciona si se abre con **KeyboardButton** de tipo `web_app`.  
-Para fotos reales se recomienda que la Mini App suba las imágenes a tu backend o que el usuario las reenvíe al bot después de capturarlas. La versión actual deja el flujo listo y marca la solicitud como pendiente para revisión del admin.
+```
+/setuserpic
+```
+(Envía una foto de perfil del bot)
 
-## Multilingüe
-El bot detecta `language_code` de Telegram y responde en español o inglés.
+```
+/setcommands
+```
+Pega esto:
+```
+start - Iniciar el bot / Start the bot
+help - Ayuda / Help
+```
 
-## Instalación
+### Activar la Mini App (muy importante)
+
+1. En @BotFather envía `/mybots`
+2. Elige tu bot
+3. **Bot Settings** → **Configure Mini App**
+4. **Enable Mini App**
+5. Pon la URL HTTPS donde alojaste `webapp/verification.html`
+   Ejemplo: `https://tuusuario.github.io/Bot-Telegram-/webapp/verification.html`
+
+---
+
+## 2. Grupo
+
+Ya tienes el invite:
+**https://t.me/+oMkBHSWhjf5lNTZh**
+
+### Qué hacer con el grupo:
+
+1. Entra al grupo con ese enlace
+2. Añade el bot como **administrador**:
+   - Toca el nombre del grupo → Administradores → Añadir administrador
+   - Busca `@OnlyFans_ManagerBot` (o el username que pusiste)
+   - Dale permisos de:
+     - Eliminar mensajes
+     - Banear usuarios
+     - Invitar usuarios (importante para invite links)
+3. Para obtener el **ID numérico** del grupo:
+   - Añade temporalmente @userinfobot o @getidsbot al grupo
+   - O reenvía un mensaje del grupo a @userinfobot
+   - El ID suele ser negativo, ejemplo: `-1001234567890`
+
+---
+
+## 3. Mini App de verificación (cámara)
+
+Archivo del repo: `webapp/verification.html`
+
+### Cómo publicarla (elige una):
+
+**Opción A – GitHub Pages (gratis)**
+1. El archivo ya está en tu repo
+2. Ve a Settings del repo → Pages
+3. Source: Deploy from branch `main` / folder `/webapp` o raíz
+4. La URL será algo como:
+   `https://bebohighrise-gif.github.io/Bot-Telegram-/verification.html`
+   (o la ruta que te salga)
+
+**Opción B – Cloudflare Pages / Vercel / Netlify**
+- Sube solo la carpeta `webapp`
+- Te dan una URL HTTPS
+
+Luego pones esa URL en:
+- BotFather → Configure Mini App
+- Y en `main.py` → `WEBAPP_VERIFICATION_URL = "https://..."`
+
+---
+
+## 4. Configurar el código (main.py)
+
+Abre `main.py` y cambia estas líneas:
+
+```python
+TELEGRAM_TOKEN = "EL_TOKEN_QUE_TE_DIO_BOTFATHER"
+ADMIN_ID = 7653419875
+WEBAPP_VERIFICATION_URL = "https://TU_URL_DE_LA_MINI_APP"
+```
+
+---
+
+## 5. Arrancar el bot
 
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-Configura en `main.py`:
-
-```python
-TELEGRAM_TOKEN = "token_de_OnlyFans_ManagerBot"
-ADMIN_ID = 7653419875
-WEBAPP_VERIFICATION_URL = "https://tu-url-de-la-mini-app"
+Si todo está bien verás:
 ```
+OnlyFans_ManagerBot V4 started
+Admin ID: 7653419875
+WebApp URL: https://...
+Group: https://t.me/+oMkBHSWhjf5lNTZh
+```
+
+---
+
+## Resumen de lo que tienes que crear/confirmar
+
+| Qué | Dónde | Estado que debes confirmar |
+|-----|-------|---------------------------|
+| Bot creado | @BotFather | Username + Token |
+| Nombre | OnlyFans_ManagerBot (o similar) | Listo |
+| Descripción y comandos | @BotFather | /setdescription + /setcommands |
+| Mini App activada | BotFather → Configure Mini App | URL HTTPS puesta |
+| Archivo verification.html | Hosting HTTPS | Publicado |
+| WEBAPP_VERIFICATION_URL | main.py | Misma URL que en BotFather |
+| Grupo | https://t.me/+oMkBHSWhjf5lNTZh | Bot añadido como admin |
+| Admin ID | 7653419875 | Ya está en el código |
+| Token en main.py | main.py | Pegado correctamente |
+
+---
+
+## Flujo de verificación para el usuario
+
+1. Usuario entra al bot → /start
+2. Declara edad + acepta términos
+3. Va a **Mi Cuenta** → **Verificación con cámara**
+4. Se abre la Mini App automáticamente
+5. Usa la cámara (documento + selfie)
+6. Tú recibes las fotos y eliges género (Hombre / Mujer) o rechazas
+7. Se asignan los badges `🔞✅` y `♂️/♀️`
+
+---
+
+## Si algo no abre la cámara
+
+- La Mini App **solo funciona dentro de Telegram** (no en navegador normal)
+- Debe ser URL **HTTPS**
+- El usuario debe dar permiso de cámara cuando el móvil lo pida
+- Prueba primero en el móvil (Telegram app)
