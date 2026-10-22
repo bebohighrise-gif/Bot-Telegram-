@@ -1,781 +1,693 @@
-cat > /app/main.py << 'ENDOFFILE'
 #!/usr/bin/env python3
 """
-BF3 Cheat Hunter - EXCLUSIVO para Battlefield 3
-Busca trampas, hacks y herramientas de inyección específicas de BF3
+Bot Telegram tipo OnlyFans
+- Catálogo de contenido
+- Pagos manuales (el dueño actualiza las formas de pago)
+- Usuario envía captura → admin recibe notificación + botones de verificación
+- Al aprobar se entrega el contenido automáticamente
 """
 
-import threading
-import time
-import requests
-import hashlib
-import os
-import logging
-from datetime import datetime
-from typing import Optional, Set
 import telebot
+from telebot import types
+import sqlite3
+import json
+import os
+from datetime import datetime
+from typing import Optional
 
-# --- CONFIGURACIÓN ---
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+# ==================== CONFIGURACIÓN ====================
+TELEGRAM_TOKEN = "PON_AQUI_TU_TOKEN"          # Token de @BotFather
+ADMIN_ID = 7653419875                        # Tu ID de Telegram (usa @userinfobot)
 
-TELEGRAM_TOKEN = "8401493599:AAF1SbAfmEepa-9gkTa3BgloyfoEq5vOIGA"
-ADMIN_CHAT_ID = 7653419875
+DB_FILE = "bot.db"
 
-HASH_FILE = "/app/hashes.txt"
-LOG_FILE = "/app/search_log.txt"
+bot = telebot.TeleBot(TELEGRAM_TOKEN, parse_mode="HTML")
 
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
-GITLAB_TOKEN = os.environ.get("GITLAB_TOKEN", "")
+# ==================== BASE DE DATOS ====================
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
 
-HEADERS_GITHUB = {
-    'Authorization': f'token {GITHUB_TOKEN}',
-    'Accept': 'application/vnd.github.v3+json'
-} if GITHUB_TOKEN else {'Accept': 'application/vnd.github.v3+json'}
-
-HEADERS_GITLAB = {'PRIVATE-TOKEN': GITLAB_TOKEN} if GITLAB_TOKEN else {}
-
-# ============================================
-# TÉRMINOS EXCLUSIVOS DE BF3
-# ============================================
-
-# Búsquedas de código en GitHub - ESPECÍFICAS BF3
-CODIGO_BF3 = [
-    "bf3+aimbot+extension:dll",
-    "bf3+wallhack+extension:dll",
-    "bf3+esp+extension:dll",
-    "bf3+hook+extension:dll",
-    "bf3+hack+extension:dll",
-    "bf3+radar+extension:dll",
-    "bf3+norecoil+extension:dll",
-    "bf3+triggerbot+extension:dll",
-    "battlefield+3+cheat+extension:dll",
-    "battlefield+3+hack+extension:dll",
-    "bf3+injector+extension:exe",
-    "bf3+loader+extension:exe",
-    "punkbuster+bypass+extension:dll",
-    "punkbuster+hook+extension:dll",
-    "pbbans+bypass+extension:dll",
-    "fairfight+bypass+extension:dll",
-    "bf3+overlay+extension:dll",
-    "bf3+silent+aim+extension:dll",
-    "bf3+no+spread+extension:dll",
-    "bf3+prediction+extension:dll",
-    "bf3+d3d+hook+extension:dll",
-    "bf3+directx+hook+extension:dll",
-    "bf3+renderer+hook+extension:dll",
-    "frostbite+hack+extension:dll",
-    "frostbite+hook+extension:dll",
-]
-
-# Búsquedas de repositorios - ESPECÍFICAS BF3
-REPOS_BF3 = [
-    "bf3 hack",
-    "bf3 cheat",
-    "bf3 aimbot",
-    "bf3 wallhack",
-    "bf3 esp hack",
-    "battlefield 3 hack",
-    "battlefield 3 cheat",
-    "bf3 punkbuster bypass",
-    "bf3 fairfight bypass",
-    "bf3 hook d3d",
-    "bf3 frostbite engine",
-    "bf3 external hack",
-    "bf3 internal hack",
-    "bf3 overlay cheat",
-    "bf3 no recoil hack",
-]
-
-# Nombres de archivos cheats específicos de BF3
-NOMBRES_BF3 = [
-    # BF3 directo
-    "bf3hack", "bf3cheat", "bf3aimbot", "bf3wallhack", "bf3esp",
-    "bf3radar", "bf3trigger", "bf3overlay", "bf3loader", "bf3hook",
-    "bf3norecoil", "bf3nospread", "bf3silent", "bf3prediction",
-    "bf3external", "bf3internal", "bf3d3d", "bf3menu",
-    
-    # Battlefield 3 explícito
-    "battlefield3hack", "battlefield3cheat", "battlefield3aimbot",
-    "battlefield3wallhack", "battlefield3esp", "battlefield3hook",
-    
-    # Frostbite Engine (motor de BF3)
-    "frostbitehook", "frostbitehack", "frostbiteexploit",
-    "fb3hook", "fb3hack",
-    
-    # PunkBuster específico de BF3
-    "punkbusterbypass", "punkbusterhook", "punkbusterspoof",
-    "pbbypass", "pbhack", "pbscreenshotbypass",
-    "pbcleaner", "pbspoof", "pbdisabler",
-    
-    # FairFight (sistema anti-cheat de BF3)
-    "fairfightbypass", "fairfighthook", "fairfightspoof",
-    "ffbypass",
-    
-    # Inyectores usados comúnmente para BF3
-    "extremeinjector", "xenosinjector", "injectorbf3",
-    "perxinjector", "winject", "omfginjector",
-    "hyperinjector", "naninjector", "jtinjector",
-    
-    # Herramientas de análisis usadas para BF3
-    "reclass", "reclassdotnet", "cheatengine",
-    "x64dbg", "x32dbg", "ollydbg", "ida64",
-    "hwidspoofer", "spoofer",
-    
-    # Herramientas D3D/DirectX para hooks de BF3
-    "d3dhook", "directxhook", "dxhook",
-    "imgui", "imguihook", "imguicheat",
-    "d2dhook", "direct2dhook",
-]
-
-# Extensiones a buscar
-EXTENSIONES_BF3 = ['dll', 'exe', 'sys', 'bin', 'asi']
-
-# Palabras clave específicas
-KEYWORDS_BF3 = [
-    'bf3', 'battlefield3', 'battlefield 3',
-    'punkbuster', 'pbbans', 'fairfight',
-    'frostbite', 'fb3',
-    'aimbot', 'wallhack', 'esp', 'norecoil', 'nospread',
-    'triggerbot', 'silentaim', 'prediction',
-    'd3dhook', 'overlay', 'radarhack',
-    'external', 'internal', 'injector', 'hook',
-    'bypass', 'spoof', 'hwid',
-]
-
-# Tags para MalwareBazaar - enfocados en game hacks
-TAGS_MALWAREBAZAAR = [
-    "gamehack", "cheat", "aimbot", "wallhack",
-    "esp", "injector", "dllinject", "gamecheat",
-    "gamer", "hacktool",
-]
-
-# --- ESTADO GLOBAL ---
-hashes_set: Set[str] = set()
-data_lock = threading.Lock()
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-scanning_active = True
-current_search = "Iniciando..."
-total_found = 0
-last_update = "-"
-github_remaining = 60
-github_reset_time = 0
-
-
-def cargar_hashes():
-    global hashes_set, total_found
-    if os.path.exists(HASH_FILE):
-        try:
-            with open(HASH_FILE, "r", encoding="utf-8") as f:
-                hashes_set = {line.strip() for line in f if line.strip() and len(line.strip()) == 64}
-            total_found = len(hashes_set)
-            logging.info(f"Cargados {total_found} hashes BF3")
-        except Exception as e:
-            logging.error(f"Error cargando hashes: {e}")
-            hashes_set = set()
-
-
-def guardar_hash(sha256: str, nombre: str = "", fuente: str = ""):
-    global total_found
-    if not sha256 or len(sha256) != 64:
-        return False
-    with data_lock:
-        if sha256 not in hashes_set:
-            hashes_set.add(sha256)
-            total_found = len(hashes_set)
-            with open(HASH_FILE, "a", encoding="utf-8") as f:
-                f.write(f"{sha256}\n")
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            with open(LOG_FILE, "a", encoding="utf-8") as f:
-                f.write(f"[{timestamp}] {nombre} | {sha256} | {fuente}\n")
-            logging.info(f"[+] NUEVO BF3: {nombre} | {sha256[:16]}... | {fuente}")
-            notificar_nueva_trampa(sha256, nombre, fuente)
-            return True
-    return False
-
-
-def notificar_nueva_trampa(sha256: str, nombre: str, fuente: str):
-    try:
-        mensaje = (
-            f"🚨 *TRAMPA BF3 DETECTADA*\n\n"
-            f"🎮 *Juego:* Battlefield 3\n"
-            f"📁 *Archivo:* `{nombre}`\n"
-            f"🔐 *SHA-256:*\n`{sha256}`\n"
-            f"📍 *Fuente:* {fuente}\n"
-            f"⏰ *Fecha:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            joined_at TEXT
         )
-        bot.send_message(ADMIN_CHAT_ID, mensaje, parse_mode="Markdown")
-    except Exception as e:
-        logging.error(f"Error notificación: {e}")
+    """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS packs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            description TEXT,
+            price REAL NOT NULL,
+            file_ids TEXT NOT NULL,          -- JSON list of file_id
+            media_types TEXT NOT NULL,       -- JSON list of 'photo'/'video'/'document'
+            active INTEGER DEFAULT 1,
+            created_at TEXT
+        )
+    """)
 
-def descargar_y_hash(url: str, timeout: int = 30) -> Optional[str]:
-    try:
-        r = requests.get(url, stream=True, timeout=timeout)
-        r.raise_for_status()
-        if 'text/html' in r.headers.get('Content-Type', ''):
-            return None
-        size = int(r.headers.get('Content-Length', 0))
-        if size > 50 * 1024 * 1024:
-            return None
-        sha256 = hashlib.sha256()
-        downloaded = 0
-        for chunk in r.iter_content(chunk_size=8192):
-            sha256.update(chunk)
-            downloaded += len(chunk)
-            if downloaded > 50 * 1024 * 1024:
-                return None
-        return sha256.hexdigest()
-    except:
-        return None
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            pack_id INTEGER,
+            amount REAL,
+            status TEXT DEFAULT 'pending',   -- pending / approved / rejected
+            screenshot_file_id TEXT,
+            created_at TEXT,
+            reviewed_at TEXT,
+            FOREIGN KEY(user_id) REFERENCES users(user_id),
+            FOREIGN KEY(pack_id) REFERENCES packs(id)
+        )
+    """)
 
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS purchases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            pack_id INTEGER,
+            purchased_at TEXT,
+            UNIQUE(user_id, pack_id)
+        )
+    """)
 
-def es_trampa_bf3(nombre: str) -> bool:
-    """Verifica si es trampa específica de BF3"""
-    if not nombre:
-        return False
-    nombre_lower = nombre.lower()
-    
-    # Verificar extensión
-    ext = nombre_lower.rsplit('.', 1)[-1] if '.' in nombre_lower else ''
-    if ext not in EXTENSIONES_BF3:
-        return False
-    
-    base_name = nombre_lower.rsplit('.', 1)[0]
-    
-    # Verificar nombres específicos de BF3
-    for cheat in NOMBRES_BF3:
-        if cheat in base_name:
-            return True
-    
-    # Verificar keywords BF3
-    for kw in KEYWORDS_BF3:
-        if kw in base_name:
-            return True
-    
-    # Si tiene extensión sospechosa + keywords de hack genéricos
-    hack_keywords = ['hack', 'cheat', 'inject', 'aim', 'esp', 'wall', 
-                     'bypass', 'spoof', 'hook', 'overlay', 'radar', 'trigger']
-    if any(kw in base_name for kw in hack_keywords):
-        # Verificar si menciona algo de juegos/BF3
-        game_keywords = ['bf3', 'battlefield', 'pb', 'punkbuster', 'fairfight',
-                        'frostbite', 'game', 'gaming', 'fps', 'shooter']
-        if any(gk in base_name for gk in game_keywords):
-            return True
-    
-    return False
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
 
+    # Formas de pago por defecto
+    c.execute("SELECT value FROM settings WHERE key = 'payment_methods'")
+    if not c.fetchone():
+        default_payments = (
+            "💳 <b>Formas de pago disponibles:</b>\n\n"
+            "• Transferencia bancaria\n"
+            "• Bizum\n"
+            "• Crypto (USDT / BTC)\n\n"
+            "<i>El dueño actualizará los datos exactos.</i>"
+        )
+        c.execute("INSERT INTO settings (key, value) VALUES (?, ?)", ("payment_methods", default_payments))
 
-def esperar_github():
-    global github_remaining, github_reset_time
-    if github_remaining <= 2:
-        wait = github_reset_time - time.time() + 5
-        if wait > 0:
-            logging.warning(f"[GitHub] Rate limit. Esperando {wait:.0f}s")
-            time.sleep(wait)
+    conn.commit()
+    conn.close()
 
+def get_db():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-def actualizar_github(response):
-    global github_remaining, github_reset_time
-    try:
-        github_remaining = int(response.headers.get('X-RateLimit-Remaining', 60))
-        github_reset_time = int(response.headers.get('X-RateLimit-Reset', time.time() + 3600))
-    except:
-        pass
+def get_setting(key: str) -> str:
+    conn = get_db()
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else ""
 
+def set_setting(key: str, value: str):
+    conn = get_db()
+    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
 
-# ============================================
-# BÚSQUEDAS BF3
-# ============================================
+def register_user(user):
+    conn = get_db()
+    conn.execute("""
+        INSERT OR IGNORE INTO users (user_id, username, first_name, joined_at)
+        VALUES (?, ?, ?, ?)
+    """, (user.id, user.username, user.first_name, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
 
-def buscar_github_codigo_bf3(query: str):
-    global current_search, github_remaining
-    current_search = f"GitHub BF3: {query[:35]}"
-    esperar_github()
-    try:
-        url = f"https://api.github.com/search/code?q={query}&per_page=30"
-        r = requests.get(url, headers=HEADERS_GITHUB, timeout=15)
-        actualizar_github(r)
-        if r.status_code in [403, 422]:
-            return
-        if r.status_code != 200:
-            return
-        items = r.json().get('items', [])
-        logging.info(f"[GitHub] '{query[:25]}' -> {len(items)} archivos")
-        for item in items[:20]:
-            try:
-                nombre = item.get('name', '')
-                if not es_trampa_bf3(nombre):
-                    continue
-                repo = item.get('repository', {})
-                repo_name = repo.get('full_name', '')
-                path = item.get('path', '')
-                branch = repo.get('default_branch', 'main')
-                raw_url = f"https://raw.githubusercontent.com/{repo_name}/{branch}/{path}"
-                sha256 = descargar_y_hash(raw_url)
-                if sha256:
-                    guardar_hash(sha256, nombre, f"GitHub: {repo_name}")
-                time.sleep(1)
-            except:
-                pass
-    except Exception as e:
-        logging.debug(f"[GitHub] Error: {e}")
+def is_admin(user_id: int) -> bool:
+    return user_id == ADMIN_ID
 
+# ==================== HELPERS ====================
+def format_price(price: float) -> str:
+    return f"{price:.2f} €" if price == int(price) else f"{price:.2f} €"
 
-def buscar_github_repo_bf3(repo_name: str, max_depth: int = 3):
-    global github_remaining
-    try:
-        repo_url = f"https://api.github.com/repos/{repo_name}"
-        r = requests.get(repo_url, headers=HEADERS_GITHUB, timeout=10)
-        actualizar_github(r)
-        if r.status_code != 200:
-            return
-        branch = r.json().get('default_branch', 'main')
-        
-        # Buscar en descripción si es BF3
-        desc = r.json().get('description', '').lower() if r.json().get('description') else ''
-        topics = r.json().get('topics', [])
-        
-        # Si no menciona BF3 en nombre/desc/topics, skipping parcial
-        name_lower = repo_name.lower()
-        if not any(kw in name_lower or kw in desc for kw in ['bf3', 'battlefield', 'punkbuster', 'fairfight']):
-            max_depth = 1  # Buscar solo raíz
-        
-        cola = [("", 0)]
-        encontrados = 0
-        while cola and encontrados < 15:
-            path, depth = cola.pop(0)
-            if depth > max_depth:
-                continue
-            esperar_github()
-            contents_url = f"https://api.github.com/repos/{repo_name}/contents/{path}"
-            cr = requests.get(contents_url, headers=HEADERS_GITHUB, timeout=10)
-            actualizar_github(cr)
-            if cr.status_code != 200:
-                continue
-            items = cr.json()
-            if not isinstance(items, list):
-                continue
-            for item in items:
-                itype = item.get('type', '')
-                iname = item.get('name', '')
-                ipath = item.get('path', '')
-                if itype == 'file' and es_trampa_bf3(iname):
-                    raw_url = f"https://raw.githubusercontent.com/{repo_name}/{branch}/{ipath}"
-                    sha256 = descargar_y_hash(raw_url)
-                    if sha256:
-                        guardar_hash(sha256, iname, f"GitHub: {repo_name}")
-                        encontrados += 1
-                elif itype == 'dir' and depth < max_depth:
-                    cola.append((ipath, depth + 1))
-            time.sleep(1)
-    except:
-        pass
+def user_has_pack(user_id: int, pack_id: int) -> bool:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT 1 FROM purchases WHERE user_id = ? AND pack_id = ?",
+        (user_id, pack_id)
+    ).fetchone()
+    conn.close()
+    return bool(row)
 
+def get_pack(pack_id: int):
+    conn = get_db()
+    pack = conn.execute("SELECT * FROM packs WHERE id = ? AND active = 1", (pack_id,)).fetchone()
+    conn.close()
+    return pack
 
-def buscar_github_repos_bf3(query: str):
-    global current_search, github_remaining
-    current_search = f"GitHub Repos BF3: {query[:25]}"
-    esperar_github()
-    try:
-        url = f"https://api.github.com/search/repositories?q={query.replace(' ', '+')}&sort=updated&per_page=15"
-        r = requests.get(url, headers=HEADERS_GITHUB, timeout=15)
-        actualizar_github(r)
-        if r.status_code != 200:
-            return
-        repos = r.json().get('items', [])
-        logging.info(f"[GitHub Repos] '{query}' -> {len(repos)} repos")
-        for repo in repos[:8]:
-            rn = repo.get('full_name', '')
-            if rn:
-                buscar_github_repo_bf3(rn)
-                time.sleep(2)
-    except:
-        pass
+def send_pack_content(chat_id: int, pack):
+    """Envía todo el contenido del pack al usuario"""
+    file_ids = json.loads(pack["file_ids"])
+    media_types = json.loads(pack["media_types"])
 
+    bot.send_message(chat_id, f"🎁 <b>Contenido desbloqueado:</b> {pack['title']}")
 
-def buscar_gitlab_bf3(query: str):
-    global current_search
-    current_search = f"GitLab BF3: {query[:25]}"
-    try:
-        url = f"https://gitlab.com/api/v4/projects"
-        params = {"search": query, "order_by": "last_activity_at", "per_page": 20}
-        r = requests.get(url, headers=HEADERS_GITLAB, params=params, timeout=15)
-        if r.status_code != 200:
-            return
-        proyectos = r.json()
-        logging.info(f"[GitLab] '{query}' -> {len(proyectos)} proyectos")
-        for proj in proyectos[:6]:
-            try:
-                pid = proj.get('id')
-                ns = proj.get('path_with_namespace', '')
-                branch = proj.get('default_branch', 'main')
-                if pid and ns:
-                    # Búsqueda recursiva
-                    cola = [("", 0)]
-                    encontrados = 0
-                    while cola and encontrados < 10:
-                        path, depth = cola.pop(0)
-                        if depth > 2:
-                            continue
-                        tree_url = f"https://gitlab.com/api/v4/projects/{pid}/repository/tree"
-                        params2 = {"path": path, "per_page": 100}
-                        tr = requests.get(tree_url, headers=HEADERS_GITLAB, params=params2, timeout=10)
-                        if tr.status_code != 200:
-                            continue
-                        for item in tr.json():
-                            itype = item.get('type', '')
-                            iname = item.get('name', '')
-                            ipath = item.get('path', '')
-                            if itype == 'blob' and es_trampa_bf3(iname):
-                                raw_url = f"https://gitlab.com/{ns}/-/raw/{branch}/{ipath}"
-                                sha256 = descargar_y_hash(raw_url)
-                                if sha256:
-                                    guardar_hash(sha256, iname, f"GitLab: {ns}")
-                                    encontrados += 1
-                            elif itype == 'tree' and depth < 2:
-                                cola.append((ipath, depth + 1))
-                        time.sleep(1)
-            except:
-                pass
-            time.sleep(2)
-    except:
-        pass
-
-
-def buscar_malwarebazaar_bf3():
-    global current_search
-    for tag in TAGS_MALWAREBAZAAR:
-        if not scanning_active:
-            break
-        current_search = f"MalwareBazaar BF3: {tag}"
+    for fid, mtype in zip(file_ids, media_types):
         try:
-            url = "https://mb-api.abuse.ch/api/v1/"
-            payload = {"query": "get_taginfo", "tag": tag, "limit": 300}
-            r = requests.post(url, data=payload, timeout=30)
-            r.raise_for_status()
-            data = r.json()
-            if data.get("query_status") != "ok":
-                continue
-            muestras = data.get("data", [])
-            count = 0
-            for muestra in muestras:
-                nombre = muestra.get("file_name", "")
-                sha256 = muestra.get("sha256_hash", "")
-                if sha256 and len(sha256) == 64 and es_trampa_bf3(nombre):
-                    guardar_hash(sha256, nombre, f"MalwareBazaar ({tag})")
-                    count += 1
-            logging.info(f"[MalwareBazaar] Tag '{tag}' -> {count} trampas BF3")
-            time.sleep(2)
+            if mtype == "photo":
+                bot.send_photo(chat_id, fid)
+            elif mtype == "video":
+                bot.send_video(chat_id, fid)
+            else:
+                bot.send_document(chat_id, fid)
+        except Exception as e:
+            bot.send_message(chat_id, f"⚠️ Error enviando un archivo: {e}")
+
+# ==================== COMANDOS USUARIO ====================
+@bot.message_handler(commands=["start"])
+def cmd_start(message):
+    register_user(message.from_user)
+    name = message.from_user.first_name or "usuario"
+
+    text = (
+        f"💖 Hola <b>{name}</b>\n\n"
+        "Bienvenido a mi contenido exclusivo.\n\n"
+        "Usa el menú para explorar los packs disponibles."
+    )
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("📦 Catálogo", "💰 Mis compras")
+    markup.row("❓ Ayuda")
+
+    bot.send_message(message.chat.id, text, reply_markup=markup)
+
+@bot.message_handler(commands=["catalogo"])
+@bot.message_handler(func=lambda m: m.text == "📦 Catálogo")
+def cmd_catalogo(message):
+    register_user(message.from_user)
+    conn = get_db()
+    packs = conn.execute("SELECT * FROM packs WHERE active = 1 ORDER BY id DESC").fetchall()
+    conn.close()
+
+    if not packs:
+        bot.send_message(message.chat.id, "Todavía no hay packs disponibles.")
+        return
+
+    text = "📦 <b>Catálogo de contenido</b>\n\nSelecciona un pack:"
+    markup = types.InlineKeyboardMarkup()
+
+    for p in packs:
+        btn_text = f"{p['title']} — {format_price(p['price'])}"
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"pack_{p['id']}"))
+
+    bot.send_message(message.chat.id, text, reply_markup=markup)
+
+@bot.message_handler(commands=["mis_compras"])
+@bot.message_handler(func=lambda m: m.text == "💰 Mis compras")
+def cmd_mis_compras(message):
+    register_user(message.from_user)
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT p.id, p.title, p.price, pu.purchased_at
+        FROM purchases pu
+        JOIN packs p ON p.id = pu.pack_id
+        WHERE pu.user_id = ?
+        ORDER BY pu.purchased_at DESC
+    """, (message.from_user.id,)).fetchall()
+    conn.close()
+
+    if not rows:
+        bot.send_message(message.chat.id, "Aún no has comprado ningún pack.")
+        return
+
+    text = "💰 <b>Tus compras:</b>\n\n"
+    markup = types.InlineKeyboardMarkup()
+
+    for r in rows:
+        text += f"• <b>{r['title']}</b> — {format_price(r['price'])}\n"
+        markup.add(types.InlineKeyboardButton(
+            f"📥 Volver a descargar: {r['title']}",
+            callback_data=f"redownload_{r['id']}"
+        ))
+
+    bot.send_message(message.chat.id, text, reply_markup=markup)
+
+@bot.message_handler(commands=["ayuda"])
+@bot.message_handler(func=lambda m: m.text == "❓ Ayuda")
+def cmd_ayuda(message):
+    text = (
+        "❓ <b>Ayuda</b>\n\n"
+        "1. Entra al <b>Catálogo</b> y elige el pack que te interese.\n"
+        "2. Verás el precio y las formas de pago actuales.\n"
+        "3. Realiza el pago y <b>envía la captura</b> aquí mismo.\n"
+        "4. El dueño verificará el pago y te entregará el contenido.\n\n"
+        "Si tienes problemas, escribe directamente al dueño."
+    )
+    bot.send_message(message.chat.id, text)
+
+# ==================== CALLBACKS ====================
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pack_"))
+def cb_pack(call):
+    pack_id = int(call.data.split("_")[1])
+    pack = get_pack(pack_id)
+
+    if not pack:
+        bot.answer_callback_query(call.id, "Pack no disponible", show_alert=True)
+        return
+
+    user_id = call.from_user.id
+
+    if user_has_pack(user_id, pack_id):
+        bot.answer_callback_query(call.id, "Ya tienes este pack")
+        send_pack_content(call.message.chat.id, pack)
+        return
+
+    payment_methods = get_setting("payment_methods")
+
+    text = (
+        f"📦 <b>{pack['title']}</b>\n\n"
+        f"{pack['description'] or ''}\n\n"
+        f"💰 Precio: <b>{format_price(pack['price'])}</b>\n\n"
+        f"{payment_methods}\n\n"
+        "Cuando hayas realizado el pago, pulsa el botón de abajo y envía la <b>captura</b>."
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "💸 Ya pagué — Enviar captura",
+        callback_data=f"pay_{pack_id}"
+    ))
+    markup.add(types.InlineKeyboardButton("« Volver", callback_data="back_catalog"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_catalog")
+def cb_back_catalog(call):
+    conn = get_db()
+    packs = conn.execute("SELECT * FROM packs WHERE active = 1 ORDER BY id DESC").fetchall()
+    conn.close()
+
+    text = "📦 <b>Catálogo de contenido</b>\n\nSelecciona un pack:"
+    markup = types.InlineKeyboardMarkup()
+    for p in packs:
+        btn_text = f"{p['title']} — {format_price(p['price'])}"
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"pack_{p['id']}"))
+
+    bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
+def cb_pay(call):
+    pack_id = int(call.data.split("_")[1])
+    pack = get_pack(pack_id)
+
+    if not pack:
+        bot.answer_callback_query(call.id, "Pack no disponible", show_alert=True)
+        return
+
+    # Guardamos el estado de espera de captura
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(
+        call.message.chat.id,
+        f"📸 Envía ahora la <b>captura del pago</b> para el pack:\n\n"
+        f"<b>{pack['title']}</b> — {format_price(pack['price'])}\n\n"
+        "Solo se acepta una foto."
+    )
+
+    bot.register_next_step_handler(msg, process_screenshot, pack_id)
+
+def process_screenshot(message, pack_id):
+    if not message.photo:
+        bot.send_message(message.chat.id, "❌ Debes enviar una <b>foto</b> (captura). Intenta de nuevo con /catalogo")
+        return
+
+    pack = get_pack(pack_id)
+    if not pack:
+        bot.send_message(message.chat.id, "El pack ya no está disponible.")
+        return
+
+    # Guardamos el pago pendiente
+    file_id = message.photo[-1].file_id  # mejor calidad
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO payments (user_id, pack_id, amount, status, screenshot_file_id, created_at)
+        VALUES (?, ?, ?, 'pending', ?, ?)
+    """, (message.from_user.id, pack_id, pack["price"], file_id, datetime.now().isoformat()))
+    payment_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    # Confirmación al usuario
+    bot.send_message(
+        message.chat.id,
+        "✅ Captura recibida.\n\n"
+        "El dueño la revisará pronto. Te avisaré cuando sea aprobada."
+    )
+
+    # Notificación al admin
+    username = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+
+    admin_text = (
+        f"💰 <b>NUEVO PAGO PENDIENTE</b>\n\n"
+        f"Usuario: {username} (ID: <code>{message.from_user.id}</code>)\n"
+        f"Pack: <b>{pack['title']}</b>\n"
+        f"Monto: <b>{format_price(pack['price'])}</b>\n"
+        f"ID pago: #{payment_id}"
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.row(
+        types.InlineKeyboardButton("✅ Aprobar", callback_data=f"approve_{payment_id}"),
+        types.InlineKeyboardButton("❌ Rechazar", callback_data=f"reject_{payment_id}")
+    )
+
+    bot.send_photo(ADMIN_ID, file_id, caption=admin_text, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("approve_") or call.data.startswith("reject_"))
+def cb_review_payment(call):
+    if not is_admin(call.from_user.id):
+        bot.answer_callback_query(call.id, "No autorizado", show_alert=True)
+        return
+
+    action, payment_id = call.data.split("_")
+    payment_id = int(payment_id)
+
+    conn = get_db()
+    payment = conn.execute("SELECT * FROM payments WHERE id = ?", (payment_id,)).fetchone()
+
+    if not payment:
+        bot.answer_callback_query(call.id, "Pago no encontrado", show_alert=True)
+        conn.close()
+        return
+
+    if payment["status"] != "pending":
+        bot.answer_callback_query(call.id, f"Ya estaba {payment['status']}", show_alert=True)
+        conn.close()
+        return
+
+    pack = conn.execute("SELECT * FROM packs WHERE id = ?", (payment["pack_id"],)).fetchone()
+
+    if action == "approve":
+        # Marcar como aprobado
+        conn.execute(
+            "UPDATE payments SET status = 'approved', reviewed_at = ? WHERE id = ?",
+            (datetime.now().isoformat(), payment_id)
+        )
+        # Registrar compra
+        conn.execute("""
+            INSERT OR IGNORE INTO purchases (user_id, pack_id, purchased_at)
+            VALUES (?, ?, ?)
+        """, (payment["user_id"], payment["pack_id"], datetime.now().isoformat()))
+        conn.commit()
+
+        # Entregar contenido
+        try:
+            send_pack_content(payment["user_id"], pack)
+            bot.send_message(
+                payment["user_id"],
+                f"✅ <b>Pago aprobado</b>\n\nTu pack <b>{pack['title']}</b> ha sido desbloqueado."
+            )
+        except Exception as e:
+            bot.send_message(ADMIN_ID, f"Error entregando contenido al usuario {payment['user_id']}: {e}")
+
+        # Actualizar mensaje del admin
+        bot.edit_message_caption(
+            caption=call.message.caption + "\n\n✅ <b>APROBADO</b>",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
+        )
+        bot.answer_callback_query(call.id, "Pago aprobado y contenido entregado")
+
+    else:  # reject
+        conn.execute(
+            "UPDATE payments SET status = 'rejected', reviewed_at = ? WHERE id = ?",
+            (datetime.now().isoformat(), payment_id)
+        )
+        conn.commit()
+
+        try:
+            bot.send_message(
+                payment["user_id"],
+                f"❌ Tu pago por el pack <b>{pack['title']}</b> fue rechazado.\n"
+                "Si crees que es un error, contacta al dueño."
+            )
         except:
             pass
 
-
-def buscar_urlhaus_bf3():
-    global current_search
-    current_search = "URLhaus: trampas BF3"
-    try:
-        url = "https://urlhaus.abuse.ch/downloads/recent/"
-        r = requests.get(url, timeout=30)
-        r.raise_for_status()
-        count = 0
-        for line in r.text.split('\n'):
-            if line.startswith('#') or not line.strip():
-                continue
-            parts = line.split(',')
-            if len(parts) < 7:
-                continue
-            threat = parts[4].lower() if len(parts) > 4 else ""
-            filename = parts[5].lower() if len(parts) > 5 else ""
-            sha256 = parts[6] if len(parts) > 6 else ""
-            # Buscar malware relacionado con juegos/BF3
-            if sha256 and len(sha256) == 64:
-                if es_trampa_bf3(filename):
-                    guardar_hash(sha256, filename, f"URLhaus ({threat})")
-                    count += 1
-        logging.info(f"[URLhaus] {count} trampas BF3 encontradas")
-    except:
-        pass
-
-
-def buscar_especifico_bf3(nombre: str):
-    global current_search
-    current_search = f"Búsqueda BF3: {nombre}"
-    logging.info(f"Buscando específicamente BF3: {nombre}")
-    
-    buscar_github_codigo_bf3(f"{nombre}+extension:dll")
-    time.sleep(2)
-    buscar_github_codigo_bf3(f"{nombre}+extension:exe")
-    time.sleep(2)
-    buscar_github_codigo_bf3(f"{nombre}+bf3+extension:dll")
-    time.sleep(3)
-    buscar_github_repos_bf3(nombre)
-    time.sleep(3)
-    buscar_gitlab_bf3(nombre)
-    time.sleep(2)
-    
-    try:
-        url = "https://mb-api.abuse.ch/api/v1/"
-        payload = {"query": "get_file_info", "search_term": nombre, "limit": 50}
-        r = requests.post(url, data=payload, timeout=20)
-        if r.status_code == 200:
-            for muestra in r.json().get("data", []):
-                sha256 = muestra.get("sha256_hash", "")
-                fname = muestra.get("file_name", nombre)
-                if sha256 and len(sha256) == 64 and es_trampa_bf3(fname):
-                    guardar_hash(sha256, fname, f"MalwareBazaar ({nombre})")
-    except:
-        pass
-
-
-# ============================================
-# COMANDOS TELEGRAM
-# ============================================
-
-@bot.message_handler(commands=['start', 'help'])
-def cmd_start(message):
-    ayuda = """
-🎮 *BF3 Cheat Hunter*
-
-Bot exclusivo para detectar trampas de *Battlefield 3*
-
-*Comandos:*
-/status - Estado del escaneo
-/stats - Estadísticas
-/hashes - Descargar hashes
-/buscar <nombre> - Buscar trampa BF3
-/pausar - Pausar
-/reanudar - Reanudar
-/ratelimit - Ver límite GitHub
-
-📁 Envía un .exe/.dll para verificar
-"""
-    bot.reply_to(message, ayuda, parse_mode="Markdown")
-
-
-@bot.message_handler(commands=['status'])
-def cmd_status(message):
-    status = (
-        f"🎮 *BF3 Cheat Hunter*\n\n"
-        f"🔍 *Buscando:* {current_search}\n"
-        f"📁 *Trampas BF3:* {total_found}\n"
-        f"⏰ *Último:* {last_update}\n"
-        f"🟢 *Activo:* {'Sí' if scanning_active else 'No'}\n"
-        f"📊 *GitHub:* {github_remaining} req"
-    )
-    bot.reply_to(message, status, parse_mode="Markdown")
-
-
-@bot.message_handler(commands=['ratelimit'])
-def cmd_ratelimit(message):
-    wait = max(0, github_reset_time - time.time())
-    info = (
-        f"📊 *GitHub Rate Limit*\n\n"
-        f"🔄 *Restantes:* {github_remaining} requests\n"
-        f"⏰ *Se resetea en:* {wait:.0f} segundos\n"
-        f"🔑 *Token configurado:* {'Sí' if GITHUB_TOKEN else 'No'}\n\n"
-        f"{'💡 Sin token: 60 req/hora\n💡 Con token: 5000 req/hora' if not GITHUB_TOKEN else '✅ Usando token para límite extendido'}"
-    )
-    bot.reply_to(message, info, parse_mode="Markdown")
-
-
-@bot.message_handler(commands=['stats'])
-def cmd_stats(message):
-    stats = (
-        f"📈 *Estadísticas*\n\n"
-        f"🔐 *Total hashes únicos:* {len(hashes_set)}\n"
-        f"📅 *Fecha inicio:* {datetime.now().strftime('%Y-%m-%d')}\n"
-        f"📊 *GitHub rate:* {github_remaining} restantes"
-    )
-    bot.reply_to(message, stats, parse_mode="Markdown")
-
-
-@bot.message_handler(commands=['hashes'])
-def cmd_hashes(message):
-    try:
-        if os.path.exists(HASH_FILE) and os.path.getsize(HASH_FILE) > 0:
-            with open(HASH_FILE, 'rb') as f:
-                bot.send_document(
-                    message.chat.id, 
-                    f, 
-                    caption=f"📁 Archivo de hashes ({len(hashes_set)} entradas)"
-                )
-        else:
-            bot.reply_to(message, "⚠️ El archivo de hashes está vacío o no existe.")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error enviando archivo: {e}")
-
-
-@bot.message_handler(commands=['buscar'])
-def cmd_buscar(message):
-    try:
-        partes = message.text.split(maxsplit=1)
-        if len(partes) < 2:
-            bot.reply_to(message, "⚠️ Uso: /buscar <nombre_proceso>")
-            return
-        nombre = partes[1].strip()
-        bot.reply_to(message, f"🔍 Buscando '{nombre}' en BF3...")
-        threading.Thread(target=buscar_especifico_bf3, args=(nombre,), daemon=True).start()
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
-
-
-@bot.message_handler(commands=['pausar'])
-def cmd_pausar(message):
-    global scanning_active
-    scanning_active = False
-    bot.reply_to(message, "⏸️ Pausado")
-
-
-@bot.message_handler(commands=['reanudar'])
-def cmd_reanudar(message):
-    global scanning_active
-    scanning_active = True
-    bot.reply_to(message, "▶️ Reanudado")
-
-
-@bot.message_handler(content_types=['document'])
-def handle_document(message):
-    try:
-        doc = message.document
-        fname = doc.file_name.lower()
-        if not fname.endswith(('.exe', '.dll', '.sys', '.asi')):
-            bot.reply_to(message, "⚠️ Solo .exe/.dll/.sys/.asi")
-            return
-        file_info = bot.get_file(doc.file_id)
-        downloaded = bot.download_file(file_info.file_path)
-        sha256 = hashlib.sha256(downloaded).hexdigest()
-        existe = sha256 in hashes_set
-        
-        es_bf3 = es_trampa_bf3(fname)
-        
-        resp = (
-            f"📁 *Archivo:* `{doc.file_name}`\n"
-            f"📏 *Tamaño:* {doc.file_size:,} bytes\n"
-            f"🔐 *SHA-256:*\n`{sha256}`\n"
-            f"🎮 *BF3 Cheat:* {'⚠️ SÍ' if es_bf3 else '❌ No detectado'}\n"
-            f"📊 *En BD:* {'⚠️ SÍ' if existe else '✅ No'}\n\n"
+        bot.edit_message_caption(
+            caption=call.message.caption + "\n\n❌ <b>RECHAZADO</b>",
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
         )
-        if existe:
-            resp += "🚨 *TRAMPA BF3 CONOCIDA*"
-        elif es_bf3:
-            resp += "⚠️ *Parece trampa BF3. Envía /agregar para registrar*"
-            msg = bot.reply_to(message, resp, parse_mode="Markdown")
-            bot.register_next_step_handler(msg, lambda m: agregar_bf3(m, sha256, doc.file_name))
-            return
-        else:
-            resp += "✅ *No parece trampa BF3*"
-        bot.reply_to(message, resp, parse_mode="Markdown")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
+        bot.answer_callback_query(call.id, "Pago rechazado")
 
+    conn.close()
 
-def agregar_bf3(message, sha256: str, nombre: str):
-    if message.text and '/agregar' in message.text.lower():
-        if guardar_hash(sha256, nombre, "Manual Telegram"):
-            bot.reply_to(message, f"✅ Trampa BF3 registrada:\n`{sha256}`", parse_mode="Markdown")
-        else:
-            bot.reply_to(message, "ℹ️ Ya existía")
-    else:
-        bot.reply_to(message, "❌ Cancelado")
+@bot.callback_query_handler(func=lambda call: call.data.startswith("redownload_"))
+def cb_redownload(call):
+    pack_id = int(call.data.split("_")[1])
+    pack = get_pack(pack_id)
 
+    if not pack:
+        bot.answer_callback_query(call.id, "Pack no disponible", show_alert=True)
+        return
 
-# ============================================
-# ESCANEO CONTINUO BF3
-# ============================================
+    if not user_has_pack(call.from_user.id, pack_id):
+        bot.answer_callback_query(call.id, "No tienes este pack", show_alert=True)
+        return
 
-def escaneo_continuo_bf3():
-    global last_update, scanning_active
-    logging.info("Iniciando escaneo BF3 continuo...")
+    bot.answer_callback_query(call.id, "Enviando contenido...")
+    send_pack_content(call.message.chat.id, pack)
+
+# ==================== PANEL ADMIN ====================
+@bot.message_handler(commands=["admin"])
+def cmd_admin(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    text = (
+        "🔧 <b>Panel de Administración</b>\n\n"
+        "/set_pagos → Actualizar formas de pago\n"
+        "/add_pack → Agregar nuevo pack\n"
+        "/pendientes → Ver pagos pendientes\n"
+        "/stats → Estadísticas\n"
+        "/list_packs → Listar packs"
+    )
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=["set_pagos"])
+def cmd_set_pagos(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    current = get_setting("payment_methods")
+    bot.send_message(
+        message.chat.id,
+        f"Formas de pago actuales:\n\n{current}\n\n"
+        "Envía el <b>nuevo texto</b> con las formas de pago (puedes usar HTML básico).\n"
+        "Escribe /cancelar para abortar."
+    )
+    bot.register_next_step_handler(message, save_payment_methods)
+
+def save_payment_methods(message):
+    if not is_admin(message.from_user.id):
+        return
+    if message.text and message.text.lower() == "/cancelar":
+        bot.send_message(message.chat.id, "Cancelado.")
+        return
+
+    set_setting("payment_methods", message.text)
+    bot.send_message(message.chat.id, "✅ Formas de pago actualizadas correctamente.")
+
+@bot.message_handler(commands=["add_pack"])
+def cmd_add_pack(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    bot.send_message(
+        message.chat.id,
+        "📦 <b>Nuevo pack</b>\n\n"
+        "Envía el título del pack:\n"
+        "(o /cancelar)"
+    )
+    bot.register_next_step_handler(message, add_pack_title)
+
+def add_pack_title(message):
+    if not is_admin(message.from_user.id):
+        return
+    if message.text and message.text.lower() == "/cancelar":
+        bot.send_message(message.chat.id, "Cancelado.")
+        return
+
+    title = message.text.strip()
+    bot.send_message(message.chat.id, "Ahora envía la <b>descripción</b> (o - para omitir):")
+    bot.register_next_step_handler(message, add_pack_description, title)
+
+def add_pack_description(message, title):
+    if not is_admin(message.from_user.id):
+        return
+    if message.text and message.text.lower() == "/cancelar":
+        bot.send_message(message.chat.id, "Cancelado.")
+        return
+
+    description = "" if message.text.strip() == "-" else message.text.strip()
+    bot.send_message(message.chat.id, "Precio del pack (número, ej: 9.99):")
+    bot.register_next_step_handler(message, add_pack_price, title, description)
+
+def add_pack_price(message, title, description):
+    if not is_admin(message.from_user.id):
+        return
+    if message.text and message.text.lower() == "/cancelar":
+        bot.send_message(message.chat.id, "Cancelado.")
+        return
+
     try:
-        bot.send_message(ADMIN_CHAT_ID, 
-            "🎮 *BF3 Cheat Hunter activo*\nEscaneando trampas de Battlefield 3...",
-            parse_mode="Markdown")
+        price = float(message.text.replace(",", ".").strip())
     except:
-        pass
-    
-    ciclo = 0
-    while True:
-        if not scanning_active:
-            time.sleep(10)
-            continue
-        
-        ciclo += 1
-        logging.info(f"=== Ciclo BF3 #{ciclo} (GitHub: {github_remaining} req) ===")
-        
-        # Fase 1: GitHub Code - búsquedas BF3 específicas
-        logging.info("[Fase 1] GitHub Code BF3...")
-        for query in CODIGO_BF3:
-            if not scanning_active or github_remaining <= 3:
-                break
-            buscar_github_codigo_bf3(query)
-            last_update = datetime.now().strftime("%H:%M:%S")
-            time.sleep(5)
-        
-        # Fase 2: GitHub Repos BF3
-        logging.info("[Fase 2] GitHub Repos BF3...")
-        for query in REPOS_BF3[:6]:
-            if not scanning_active or github_remaining <= 8:
-                break
-            buscar_github_repos_bf3(query)
-            last_update = datetime.now().strftime("%H:%M:%S")
-            time.sleep(10)
-        
-        # Esperar si rate limit
-        if github_remaining <= 3:
-            wait = max(0, github_reset_time - time.time() + 10)
-            if wait > 0:
-                logging.warning(f"[Rate Limit] Esperando {wait:.0f}s")
-                time.sleep(wait)
-        
-        # Fase 3: GitLab BF3
-        logging.info("[Fase 3] GitLab BF3...")
-        for query in REPOS_BF3[:6]:
-            if not scanning_active:
-                break
-            buscar_gitlab_bf3(query)
-            last_update = datetime.now().strftime("%H:%M:%S")
-            time.sleep(5)
-        
-        # Fase 4: MalwareBazaar BF3
-        logging.info("[Fase 4] MalwareBazaar BF3...")
-        buscar_malwarebazaar_bf3()
-        last_update = datetime.now().strftime("%H:%M:%S")
-        
-        # Fase 5: URLhaus BF3
-        logging.info("[Fase 5] URLhaus BF3...")
-        buscar_urlhaus_bf3()
-        last_update = datetime.now().strftime("%H:%M:%S")
-        
-        logging.info(f"=== Ciclo BF3 #{ciclo} completado. Total: {total_found} ===")
-        
-        # Esperar 10 minutos
-        time.sleep(600)
+        bot.send_message(message.chat.id, "Precio inválido. Cancela e intenta de nuevo.")
+        return
 
+    bot.send_message(
+        message.chat.id,
+        "Ahora envía los archivos del pack (fotos/videos).\n"
+        "Cuando termines, escribe <b>/listo</b>"
+    )
+    bot.register_next_step_handler(message, add_pack_files, title, description, price, [], [])
 
-def iniciar_bot():
-    while True:
-        try:
-            bot.delete_webhook(drop_pending_updates=True)
-            time.sleep(1)
-            bot.infinity_polling(timeout=60, long_polling_timeout=30)
-        except Exception as e:
-            logging.error(f"Error bot: {e}")
-            time.sleep(30)
+def add_pack_files(message, title, description, price, file_ids, media_types):
+    if not is_admin(message.from_user.id):
+        return
 
+    if message.text and message.text.lower() == "/cancelar":
+        bot.send_message(message.chat.id, "Cancelado.")
+        return
+
+    if message.text and message.text.lower() == "/listo":
+        if not file_ids:
+            bot.send_message(message.chat.id, "No has enviado ningún archivo. Cancela e intenta de nuevo.")
+            return
+
+        conn = get_db()
+        conn.execute("""
+            INSERT INTO packs (title, description, price, file_ids, media_types, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            title,
+            description,
+            price,
+            json.dumps(file_ids),
+            json.dumps(media_types),
+            datetime.now().isoformat()
+        ))
+        conn.commit()
+        conn.close()
+
+        bot.send_message(
+            message.chat.id,
+            f"✅ Pack creado:\n\n"
+            f"<b>{title}</b>\n"
+            f"Precio: {format_price(price)}\n"
+            f"Archivos: {len(file_ids)}"
+        )
+        return
+
+    # Recibir archivo
+    if message.photo:
+        file_ids.append(message.photo[-1].file_id)
+        media_types.append("photo")
+        bot.send_message(message.chat.id, f"Foto añadida ({len(file_ids)}). Envía más o /listo")
+    elif message.video:
+        file_ids.append(message.video.file_id)
+        media_types.append("video")
+        bot.send_message(message.chat.id, f"Video añadido ({len(file_ids)}). Envía más o /listo")
+    elif message.document:
+        file_ids.append(message.document.file_id)
+        media_types.append("document")
+        bot.send_message(message.chat.id, f"Documento añadido ({len(file_ids)}). Envía más o /listo")
+    else:
+        bot.send_message(message.chat.id, "Envía foto, video o documento. O escribe /listo")
+
+    bot.register_next_step_handler(message, add_pack_files, title, description, price, file_ids, media_types)
+
+@bot.message_handler(commands=["pendientes"])
+def cmd_pendientes(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT pay.id, pay.user_id, pay.amount, pay.created_at, p.title, u.username, u.first_name
+        FROM payments pay
+        JOIN packs p ON p.id = pay.pack_id
+        LEFT JOIN users u ON u.user_id = pay.user_id
+        WHERE pay.status = 'pending'
+        ORDER BY pay.created_at ASC
+    """).fetchall()
+    conn.close()
+
+    if not rows:
+        bot.send_message(message.chat.id, "No hay pagos pendientes.")
+        return
+
+    text = f"📋 <b>Pagos pendientes ({len(rows)})</b>\n\n"
+    for r in rows:
+        uname = f"@{r['username']}" if r["username"] else r["first_name"]
+        text += (
+            f"#{r['id']} — {uname} (ID {r['user_id']})\n"
+            f"Pack: {r['title']} — {format_price(r['amount'])}\n"
+            f"Fecha: {r['created_at'][:16]}\n\n"
+        )
+
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=["list_packs"])
+def cmd_list_packs(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    conn = get_db()
+    packs = conn.execute("SELECT * FROM packs ORDER BY id DESC").fetchall()
+    conn.close()
+
+    if not packs:
+        bot.send_message(message.chat.id, "No hay packs.")
+        return
+
+    text = "📦 <b>Packs:</b>\n\n"
+    for p in packs:
+        status = "✅" if p["active"] else "❌"
+        text += f"{status} #{p['id']} <b>{p['title']}</b> — {format_price(p['price'])}\n"
+
+    bot.send_message(message.chat.id, text)
+
+@bot.message_handler(commands=["stats"])
+def cmd_stats(message):
+    if not is_admin(message.from_user.id):
+        return
+
+    conn = get_db()
+    users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    packs = conn.execute("SELECT COUNT(*) FROM packs WHERE active = 1").fetchone()[0]
+    pending = conn.execute("SELECT COUNT(*) FROM payments WHERE status = 'pending'").fetchone()[0]
+    approved = conn.execute("SELECT COUNT(*) FROM payments WHERE status = 'approved'").fetchone()[0]
+    revenue = conn.execute("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'approved'").fetchone()[0]
+    conn.close()
+
+    text = (
+        f"📊 <b>Estadísticas</b>\n\n"
+        f"Usuarios: {users}\n"
+        f"Packs activos: {packs}\n"
+        f"Pagos pendientes: {pending}\n"
+        f"Pagos aprobados: {approved}\n"
+        f"Ingresos: {format_price(revenue)}"
+    )
+    bot.send_message(message.chat.id, text)
+
+# ==================== ARRANQUE ====================
 if __name__ == "__main__":
-    os.makedirs("/app", exist_ok=True)
-    cargar_hashes()
-    if not os.path.exists(HASH_FILE):
-        open(HASH_FILE, 'w').close()
-    if not os.path.exists(LOG_FILE):
-        open(LOG_FILE, 'w').close()
-    
-    threading.Thread(target=escaneo_continuo_bf3, daemon=True).start()
-    logging.info("🎮 BF3 Cheat Hunter iniciado")
-    iniciar_bot()
-ENDOFFILE
-
-echo "✅ main.py creado - Específico para Battlefield 3"
+    init_db()
+    print("Bot tipo OnlyFans iniciado...")
+    bot.infinity_polling()

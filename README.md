@@ -1,38 +1,34 @@
-# BF3 Cheat Hunter 🛡️
+# 💖 Bot Telegram tipo OnlyFans
 
-Sistema de detección de trampas para Battlefield 3 con bot de Telegram.
+Bot de venta de contenido exclusivo con pagos manuales y verificación por captura.
 
 ## Características
 
-- 🔍 Escaneo continuo 24/7 en múltiples fuentes
-- 📱 Bot de Telegram para notificaciones y gestión
-- 🔐 Generación de hashes SHA-256
-- 📁 Análisis de archivos .exe/.dll
+- Catálogo de packs / contenido
+- Formas de pago editables por el dueño
+- Usuario paga y envía captura → el bot te notifica
+- Aprobación / rechazo con un solo toque
+- Entrega automática del contenido al aprobar
+- Panel de administración completo
 
-## Fuentes de Búsqueda
-
-- GitHub (repositorios de cheats)
-- GitLab (proyectos sospechosos)
-- MalwareBazaar (muestras de malware)
-- HybridAnalysis (sandbox público)
-
-## Comandos del Bot
+## Comandos Usuario
 
 | Comando | Descripción |
 |---------|-------------|
-| `/help` | Muestra ayuda |
-| `/status` | Estado actual del escaneo |
-| `/stats` | Estadísticas detalladas |
-| `/hashes` | Descarga archivo de hashes |
-| `/buscar <nombre>` | Busca trampa específica |
-| `/pausar` | Pausa el escaneo |
-| `/reanudar` | Reanuda el escaneo |
+| `/start` | Iniciar el bot |
+| `/catalogo` | Ver packs disponibles |
+| `/mis_compras` | Ver lo que ya compraste |
+| `/ayuda` | Ayuda |
 
-## Archivos
+## Comandos Admin
 
-- `hashes.txt` - Hashes SHA-256 (uno por línea)
-- `search_log.txt` - Log detallado de trampas encontradas
-- `bot.log` - Logs del sistema
+| Comando | Descripción |
+|---------|-------------|
+| `/admin` | Panel de administración |
+| `/set_pagos` | Actualizar formas de pago |
+| `/add_pack` | Agregar nuevo pack |
+| `/pendientes` | Ver pagos pendientes |
+| `/stats` | Estadísticas |
 
 ## Instalación
 
@@ -43,6 +39,14 @@ python main.py
 
 ## Configuración
 
-Edita las variables en `main.py`:
-- `TELEGRAM_TOKEN` - Token del bot
-- `ADMIN_CHAT_ID` - ID del chat para notificaciones
+Edita en `main.py`:
+- `TELEGRAM_TOKEN` → Token de @BotFather
+- `ADMIN_ID` → Tu ID de Telegram (usa @userinfobot)
+
+## Flujo de pago
+
+1. Usuario elige un pack
+2. Ve las formas de pago actuales
+3. Realiza el pago y envía la captura al bot
+4. Tú recibes notificación + botones Aprobar / Rechazar
+5. Al aprobar → el contenido se entrega automáticamente
