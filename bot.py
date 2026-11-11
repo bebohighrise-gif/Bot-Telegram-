@@ -313,9 +313,9 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     admin_text = ("\n\n<b>Admin</b>\n/addadmin /deladmin /listadmins\n/pendientes /responder /anuncio\n"
                   "/moderacion on|off /ban /kick /mute /unmute /warn\n/soporte /tickets /bienvenida /setbienvenida\n"
                   "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas\n/servidor /setservidor /filtro /auto") if await is_admin(update.effective_user.id) else ""
-    keyboard = [[KeyboardButton("/reglas"), KeyboardButton("/servidor"), KeyboardButton("/wipe")], [KeyboardButton("/soporte"), KeyboardButton("/enlaces"), KeyboardButton("/eventos")]]
+    keyboard = [[KeyboardButton("/reglas 📜"), KeyboardButton("/servidor 🎮"), KeyboardButton("/wipe 🧨")], [KeyboardButton("/soporte 🎫"), KeyboardButton("/enlaces 🔗"), KeyboardButton("/eventos 📅")]]
     if await is_admin(update.effective_user.id):
-        keyboard += [[KeyboardButton("/panel"), KeyboardButton("/anuncio"), KeyboardButton("/tickets")], [KeyboardButton("/filtro"), KeyboardButton("/auto"), KeyboardButton("/mantenimiento")], [KeyboardButton("/admin"), KeyboardButton("/mod"), KeyboardButton("/sorteo")]]
+        keyboard += [[KeyboardButton("/panel 🛠️"), KeyboardButton("/anuncio 📢"), KeyboardButton("/tickets 🎫")], [KeyboardButton("/filtro 🛡️"), KeyboardButton("/auto 🤖"), KeyboardButton("/mantenimiento 🔧")], [KeyboardButton("/panel 👮"), KeyboardButton("/panel 🛡️"), KeyboardButton("/sorteo 🎁")]]
     await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
     await update.effective_message.reply_text("Usa también el teclado inferior para acceder rápidamente a las funciones principales.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True))
 
@@ -1037,23 +1037,23 @@ async def media_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def post_init(application: Application) -> None:
     await refresh_admins()
     public_commands = [
-        BotCommand("start", "Iniciar el bot"), BotCommand("help", "Ver ayuda y comandos"), BotCommand("reglas", "Ver reglas de GAMAER CITY"),
-        BotCommand("servidor", "Ver la IP del servidor"), BotCommand("enlaces", "Ver enlaces oficiales"), BotCommand("devblog", "Ver último devblog"),
-        BotCommand("wipe", "Ver próximo wipe"), BotCommand("wipes", "Ver calendario de wipes"), BotCommand("soporte", "Abrir ticket"),
-        BotCommand("apelar", "Apelar una sanción"), BotCommand("reportar", "Reportar un usuario"), BotCommand("eventos", "Ver eventos"),
-        BotCommand("sorteos", "Ver sorteos"), BotCommand("encuestas", "Ver encuestas activas"), BotCommand("cancelar", "Cancelar flujo actual"),
+        BotCommand("start", "🚀 Iniciar el bot"), BotCommand("help", "❓ Ver ayuda y comandos"), BotCommand("reglas", "📜 Ver reglas de GAMAER CITY"),
+        BotCommand("servidor", "🎮 Ver la IP del servidor"), BotCommand("enlaces", "🔗 Ver enlaces oficiales"), BotCommand("devblog", "📰 Ver último devblog"),
+        BotCommand("wipe", "🧨 Ver próximo wipe"), BotCommand("wipes", "📅 Ver calendario de wipes"), BotCommand("soporte", "🎫 Abrir ticket"),
+        BotCommand("apelar", "⚖️ Apelar una sanción"), BotCommand("reportar", "🚨 Reportar un usuario"), BotCommand("eventos", "📅 Ver eventos"),
+        BotCommand("sorteos", "🎁 Ver sorteos"), BotCommand("encuestas", "📊 Ver encuestas activas"), BotCommand("cancelar", "❌ Cancelar flujo actual"),
     ]
     admin_commands = public_commands + [
-        BotCommand("panel", "Abrir panel administrativo"), BotCommand("anuncio", "Crear anuncio"), BotCommand("pendientes", "Revisar enlaces pendientes"),
-        BotCommand("tickets", "Gestionar tickets"), BotCommand("responder", "Responder mensaje"), BotCommand("moderacion", "Activar o desactivar moderación"),
-        BotCommand("filtro", "Gestionar filtro de palabras"), BotCommand("auto", "Gestionar respuestas automáticas"), BotCommand("setreglas", "Cambiar reglas"),
-        BotCommand("setservidor", "Cambiar IP del servidor"), BotCommand("setenlaces", "Configurar enlaces oficiales"), BotCommand("setwipe", "Configurar wipe"),
-        BotCommand("mantenimiento", "Activar modo mantenimiento"), BotCommand("fijar", "Fijar mensaje oficial"), BotCommand("rol", "Asignar rol"),
-        BotCommand("evento", "Crear o cancelar evento"), BotCommand("sorteo", "Crear o cerrar sorteo"), BotCommand("encuesta", "Crear encuesta"),
-        BotCommand("cerrar_encuesta", "Cerrar encuesta"), BotCommand("bienvenida", "Configurar bienvenida"), BotCommand("setbienvenida", "Cambiar bienvenida"),
-        BotCommand("addadmin", "Añadir administrador"), BotCommand("admin", "Asignar administrador por ID"), BotCommand("mod", "Asignar moderador por ID"), BotCommand("support", "Asignar soporte por ID"), BotCommand("announcer", "Asignar anunciante por ID"), BotCommand("deladmin", "Eliminar administrador"), BotCommand("listadmins", "Listar administradores"),
-        BotCommand("ban", "Banear usuario"), BotCommand("kick", "Expulsar usuario"), BotCommand("mute", "Silenciar usuario"),
-        BotCommand("unmute", "Quitar silencio"), BotCommand("warn", "Advertir usuario"), BotCommand("claimadmin", "Reclamar acceso inicial"),
+        BotCommand("panel", "🛠️ Abrir panel administrativo"), BotCommand("anuncio", "📢 Crear anuncio"), BotCommand("pendientes", "🔎 Revisar enlaces pendientes"),
+        BotCommand("tickets", "🎫 Gestionar tickets"), BotCommand("responder", "💬 Responder mensaje"), BotCommand("moderacion", "🛡️ Activar o desactivar moderación"),
+        BotCommand("filtro", "🚫 Gestionar filtro de palabras"), BotCommand("auto", "🤖 Gestionar respuestas automáticas"), BotCommand("setreglas", "📜 Cambiar reglas"),
+        BotCommand("setservidor", "🎮 Cambiar IP del servidor"), BotCommand("setenlaces", "🔗 Configurar enlaces oficiales"), BotCommand("setwipe", "🧨 Configurar wipe"),
+        BotCommand("mantenimiento", "🔧 Activar modo mantenimiento"), BotCommand("fijar", "📌 Fijar mensaje oficial"), BotCommand("rol", "👤 Asignar rol"),
+        BotCommand("evento", "📅 Crear o cancelar evento"), BotCommand("sorteo", "🎁 Crear o cerrar sorteo"), BotCommand("encuesta", "📊 Crear encuesta"),
+        BotCommand("cerrar_encuesta", "🔒 Cerrar encuesta"), BotCommand("bienvenida", "👋 Configurar bienvenida"), BotCommand("setbienvenida", "✏️ Cambiar bienvenida"),
+        BotCommand("addadmin", "👮 Añadir administrador"), BotCommand("admin", "👮 Asignar administrador por ID"), BotCommand("mod", "🛡️ Asignar moderador por ID"), BotCommand("support", "🎫 Asignar soporte por ID"), BotCommand("announcer", "📢 Asignar anunciante por ID"), BotCommand("deladmin", "❌ Eliminar administrador"), BotCommand("listadmins", "👥 Listar administradores"),
+        BotCommand("ban", "🔨 Banear usuario"), BotCommand("kick", "🚪 Expulsar usuario"), BotCommand("mute", "🔇 Silenciar usuario"),
+        BotCommand("unmute", "🔊 Quitar silencio"), BotCommand("warn", "⚠️ Advertir usuario"), BotCommand("claimadmin", "🔑 Reclamar acceso inicial"),
     ]
     await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllPrivateChats())
     await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllGroupChats())
