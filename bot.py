@@ -37,7 +37,7 @@ def require_env() -> None:
     if not ENV_FILE.is_file():
         raise RuntimeError(f"Falta el archivo obligatorio {ENV_FILE}. Copia .env.example como .env y completa sus valores.")
     load_dotenv(dotenv_path=ENV_FILE, override=True)
-    required = ["TELEGRAM_TOKEN", "GROUP_ID", "ADMIN_IDS"]
+    required = ["TELEGRAM_TOKEN", "GROUP_ID"]
     missing = [name for name in required if not os.getenv(name, "").strip()]
     if missing:
         raise RuntimeError("Faltan variables obligatorias en .env: " + ", ".join(missing))
@@ -303,7 +303,24 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.effective_message.reply_text("✅ Bot conectado. Usa /help para ver los comandos.", parse_mode=ParseMode.HTML)
+    extra = " Si eres el propietario del grupo y aún no hay admins, usa /claimadmin." if not admins else ""
+    await update.effective_message.reply_text("✅ Bot conectado. Usa /help para ver los comandos." + extra, parse_mode=ParseMode.HTML)
+
+
+async def claim_admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    if not user or not update.effective_chat or update.effective_chat.type != "private":
+        await update.effective_message.reply_text("Usa /claimadmin en el chat privado del bot."); return
+    if admins:
+        await update.effective_message.reply_text("ℹ️ Ya existe al menos un administrador. Solicita que te añadan con /addadmin."); return
+    try:
+        member = await context.bot.get_chat_member(GROUP_ID, user.id)
+        if member.status != ChatMemberStatus.OWNER:
+            await update.effective_message.reply_text("🔒 Solo el propietario del grupo puede reclamar el primer acceso administrativo."); return
+    except Exception:
+        await update.effective_message.reply_text("❌ No pude verificar que seas el propietario del grupo. Revisa GROUP_ID y los permisos del bot."); return
+    admins.add(user.id); await store.save("admins.json", sorted(admins)); await audit("claim_first_admin", user.id)
+    await update.effective_message.reply_text("✅ Ya eres administrador de GAMAER CITY. Usa /help para configurar el bot.")
 
 
 async def admins_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -966,9 +983,9 @@ async def post_init(application: Application) -> None:
 
 
 def build_app() -> Application:
-    if not valid_token() or not GROUP_ID or not admins: raise RuntimeError("Configura TELEGRAM_TOKEN, GROUP_ID y ADMIN_IDS")
+    if not valid_token() or not GROUP_ID: raise RuntimeError("Configura TELEGRAM_TOKEN y GROUP_ID en .env")
     app = Application.builder().token(TOKEN).post_init(post_init).build()
-    app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
+    app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler("claimadmin", claim_admin_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
     app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
     app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))

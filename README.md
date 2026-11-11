@@ -36,11 +36,11 @@ pip install -r requirements.txt
 export TELEGRAM_TOKEN='TOKEN_DE_BOTFATHER'
 export GROUP_ID='-1001234567890'
 export GROUP_NAME='GAMAER CITY'
-export ADMIN_IDS='123456789,987654321'
+export ADMIN_IDS='123456789,987654321' # opcional
 export DATA_DIR='/ruta/persistente/gamaer-city-data'
 ```
 
-El archivo `.env` es obligatorio. `bot.py` y `main.py` lo buscan en la carpeta del proyecto, no solo en el directorio actual. Si no existe o faltan `TELEGRAM_TOKEN`, `GROUP_ID` o `ADMIN_IDS`, el bot detiene el arranque con un error claro. Usa `.env.example` como plantilla y nunca subas `.env` al repositorio.
+El archivo `.env` es obligatorio. `bot.py` y `main.py` lo buscan en la carpeta del proyecto, no solo en el directorio actual. Solo `TELEGRAM_TOKEN` y `GROUP_ID` son obligatorios. `ADMIN_IDS` es opcional y puede quedar vacío. Si queda vacío, el propietario del grupo debe abrir el chat privado del bot y usar `/claimadmin`; el bot verificará su rol de propietario en Telegram y le dará el primer acceso administrativo. Usa `.env.example` como plantilla y nunca subas `.env` al repositorio.
 
 Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
 
