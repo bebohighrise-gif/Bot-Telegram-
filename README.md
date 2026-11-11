@@ -45,6 +45,8 @@ El archivo `.env` es obligatorio. `bot.py` y `main.py` lo buscan en la carpeta d
 
 Al iniciar, el bot registra automáticamente los comandos públicos en grupos y chats privados. Los comandos administrativos se registran únicamente en el menú privado del propietario (`BOT_OWNER_ID`) y de los IDs que estén en `ADMIN_IDS`. Telegram puede tardar unos segundos en actualizar el botón `/` o el menú. También puedes configurarlos desde `@BotFather` con `/setcommands`, pero no es necesario si el bot ha iniciado correctamente.
 
+En el chat privado, `/start` y `/help` muestran un teclado con botones para las funciones frecuentes. El `/panel` incluye botones para reglas, servidor, tickets, enlaces, mantenimiento y asignación de Admin o Mod. También puedes usar los alias rápidos: `/admin USER_ID`, `/mod USER_ID`, `/support USER_ID` y `/announcer USER_ID`.
+
 Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
 
 ## Comandos

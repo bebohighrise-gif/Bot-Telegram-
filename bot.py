@@ -21,7 +21,7 @@ from typing import Any
 import feedparser
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
-from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonCommands, Update
+from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, MenuButtonCommands, ReplyKeyboardMarkup, Update
 from telegram.constants import ChatMemberStatus, ParseMode
 from telegram.ext import (
     Application, CallbackQueryHandler, ChatMemberHandler, CommandHandler,
@@ -300,12 +300,15 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     admin_text = ("\n\n<b>Admin</b>\n/addadmin /deladmin /listadmins\n/pendientes /responder /anuncio\n"
                   "/moderacion on|off /ban /kick /mute /unmute /warn\n/soporte /tickets /bienvenida /setbienvenida\n"
                   "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas\n/servidor /setservidor /filtro /auto") if await is_admin(update.effective_user.id) else ""
-    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML)
+    keyboard = [[KeyboardButton("/reglas"), KeyboardButton("/servidor"), KeyboardButton("/wipe")], [KeyboardButton("/soporte"), KeyboardButton("/enlaces"), KeyboardButton("/eventos")]]
+    if await is_admin(update.effective_user.id):
+        keyboard += [[KeyboardButton("/panel"), KeyboardButton("/anuncio"), KeyboardButton("/tickets")], [KeyboardButton("/filtro"), KeyboardButton("/auto"), KeyboardButton("/mantenimiento")], [KeyboardButton("/admin"), KeyboardButton("/mod"), KeyboardButton("/sorteo")]]
+    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True))
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     extra = " Si eres el propietario del grupo y aún no hay admins, usa /claimadmin." if not admins else ""
-    await update.effective_message.reply_text("✅ Bot conectado. Usa /help para ver los comandos." + extra, parse_mode=ParseMode.HTML)
+    await update.effective_message.reply_text("✅ Bot conectado. Usa los botones del teclado o /help para ver los comandos." + extra, parse_mode=ParseMode.HTML, reply_markup=ReplyKeyboardMarkup([[KeyboardButton("/help"), KeyboardButton("/panel" if await is_admin(update.effective_user.id) else "/reglas")], [KeyboardButton("/servidor"), KeyboardButton("/wipe"), KeyboardButton("/soporte")]], resize_keyboard=True, is_persistent=True))
 
 
 async def claim_admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -703,6 +706,10 @@ async def panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     call = update.callback_query; await call.answer()
     if not await is_admin(call.from_user.id): return
     section = call.data.split(":", 1)[1]
+    if section in {"admin", "mod"}:
+        admin_states[call.from_user.id] = {"flow": "assign_role", "role": "admin" if section == "admin" else "moderator"}
+        await call.message.reply_text(f"Escribe el ID numérico para asignar el rol {admin_states[call.from_user.id]['role']}.")
+        return
     if section == "rules": text = await store.load("rules.txt")
     elif section == "server":
         server = await store.load("server.json"); text = f"🎮 {esc(server.get('name', GROUP_NAME))}\nIP: <code>{esc(server.get('ip', 'no configurada'))}</code>"
@@ -789,7 +796,7 @@ async def maintenance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def panel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔎 Enlaces", callback_data="panel:links"), InlineKeyboardButton("🎫 Tickets", callback_data="panel:tickets")], [InlineKeyboardButton("📜 Reglas", callback_data="panel:rules"), InlineKeyboardButton("🌐 Servidor", callback_data="panel:server")], [InlineKeyboardButton("🛠️ Mantenimiento", callback_data="panel:maintenance")]])
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔎 Enlaces", callback_data="panel:links"), InlineKeyboardButton("🎫 Tickets", callback_data="panel:tickets")], [InlineKeyboardButton("📜 Reglas", callback_data="panel:rules"), InlineKeyboardButton("🌐 Servidor", callback_data="panel:server")], [InlineKeyboardButton("👮 Admin", callback_data="panel:admin"), InlineKeyboardButton("🛡️ Mod", callback_data="panel:mod")], [InlineKeyboardButton("🛠️ Mantenimiento", callback_data="panel:maintenance")]])
     await update.effective_message.reply_text("🛠️ <b>Panel de GAMAER CITY</b>\nSelecciona una sección:", parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 
@@ -842,6 +849,18 @@ async def roles_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if len(context.args) < 2 or not context.args[0].lstrip("-").isdigit() or context.args[1] not in {"admin", "moderator", "support", "announcer", "user"}:
         await update.effective_message.reply_text("Usa /rol USER_ID admin|moderator|support|announcer|user"); return
     roles = await store.load("roles.json"); roles[context.args[0]] = context.args[1]; await store.save("roles.json", roles); await update.effective_message.reply_text("✅ Rol actualizado.")
+
+
+async def role_alias_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await private_admin(update): return
+    alias = update.effective_message.text.split()[0].split("@")[0].lstrip("/").lower()
+    role = {"admin": "admin", "mod": "moderator", "support": "support", "announcer": "announcer"}.get(alias)
+    if not role or len(context.args) != 1 or not context.args[0].lstrip("-").isdigit():
+        await update.effective_message.reply_text(f"Usa /{alias} USER_ID"); return
+    user_id = int(context.args[0]); roles = await store.load("roles.json"); roles[str(user_id)] = role; await store.save("roles.json", roles)
+    if role == "admin":
+        admins.add(user_id); await store.save("admins.json", sorted(admins))
+    await audit("role_assign", update.effective_user.id, user_id, role); await update.effective_message.reply_text(f"✅ Usuario {user_id} asignado como {role}.")
 
 
 async def events_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -947,6 +966,11 @@ async def cerrar_encuesta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = admin_states.get(update.effective_user.id)
+    if state and state.get("flow") == "assign_role":
+        if not update.effective_message.text.lstrip("-").isdigit(): await update.effective_message.reply_text("Escribe un ID numérico o /cancelar."); return
+        user_id = int(update.effective_message.text); role = state["role"]; admin_states.pop(update.effective_user.id, None); roles = await store.load("roles.json"); roles[str(user_id)] = role; await store.save("roles.json", roles)
+        if role == "admin": admins.add(user_id); await store.save("admins.json", sorted(admins))
+        await audit("role_assign", update.effective_user.id, user_id, role); await update.effective_message.reply_text(f"✅ Usuario {user_id} asignado como {role}."); return
     if state and state.get("flow") == "respond_number":
         try: index = int(update.effective_message.text) - 1; target = list(recent_messages)[index]
         except (ValueError, IndexError): await update.effective_message.reply_text("Escribe un número válido o /cancelar."); return
@@ -999,7 +1023,7 @@ async def post_init(application: Application) -> None:
         BotCommand("mantenimiento", "Activar modo mantenimiento"), BotCommand("fijar", "Fijar mensaje oficial"), BotCommand("rol", "Asignar rol"),
         BotCommand("evento", "Crear o cancelar evento"), BotCommand("sorteo", "Crear o cerrar sorteo"), BotCommand("encuesta", "Crear encuesta"),
         BotCommand("cerrar_encuesta", "Cerrar encuesta"), BotCommand("bienvenida", "Configurar bienvenida"), BotCommand("setbienvenida", "Cambiar bienvenida"),
-        BotCommand("addadmin", "Añadir administrador"), BotCommand("deladmin", "Eliminar administrador"), BotCommand("listadmins", "Listar administradores"),
+        BotCommand("addadmin", "Añadir administrador"), BotCommand("admin", "Asignar administrador por ID"), BotCommand("mod", "Asignar moderador por ID"), BotCommand("support", "Asignar soporte por ID"), BotCommand("announcer", "Asignar anunciante por ID"), BotCommand("deladmin", "Eliminar administrador"), BotCommand("listadmins", "Listar administradores"),
         BotCommand("ban", "Banear usuario"), BotCommand("kick", "Expulsar usuario"), BotCommand("mute", "Silenciar usuario"),
         BotCommand("unmute", "Quitar silencio"), BotCommand("warn", "Advertir usuario"), BotCommand("claimadmin", "Reclamar acceso inicial"),
     ]
@@ -1016,7 +1040,7 @@ def build_app() -> Application:
     if not valid_token() or not GROUP_ID: raise RuntimeError("Configura TELEGRAM_TOKEN y GROUP_ID en .env")
     app = Application.builder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler("claimadmin", claim_admin_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
-    app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
+    app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler(["admin", "mod", "support", "announcer"], role_alias_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
     app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))
     app.add_error_handler(error_handler)
