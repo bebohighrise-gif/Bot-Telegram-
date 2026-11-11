@@ -28,7 +28,21 @@ from telegram.ext import (
     ContextTypes, MessageHandler, filters,
 )
 
-load_dotenv()
+ENV_FILE = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=ENV_FILE)
+
+
+def require_env() -> None:
+    """Carga el .env del proyecto y detiene el arranque si falta o está incompleto."""
+    if not ENV_FILE.is_file():
+        raise RuntimeError(f"Falta el archivo obligatorio {ENV_FILE}. Copia .env.example como .env y completa sus valores.")
+    load_dotenv(dotenv_path=ENV_FILE, override=True)
+    required = ["TELEGRAM_TOKEN", "GROUP_ID", "ADMIN_IDS"]
+    missing = [name for name in required if not os.getenv(name, "").strip()]
+    if missing:
+        raise RuntimeError("Faltan variables obligatorias en .env: " + ", ".join(missing))
+
+
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 LOG = logging.getLogger("rust133")
 TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
@@ -963,5 +977,6 @@ def build_app() -> Application:
 
 
 if __name__ == "__main__":
+    require_env()
     if not valid_token(): raise SystemExit("TELEGRAM_TOKEN no configurado o inválido")
     build_app().run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)

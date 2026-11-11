@@ -40,6 +40,8 @@ export ADMIN_IDS='123456789,987654321'
 export DATA_DIR='/ruta/persistente/gamaer-city-data'
 ```
 
+El archivo `.env` es obligatorio. `bot.py` y `main.py` lo buscan en la carpeta del proyecto, no solo en el directorio actual. Si no existe o faltan `TELEGRAM_TOKEN`, `GROUP_ID` o `ADMIN_IDS`, el bot detiene el arranque con un error claro. Usa `.env.example` como plantilla y nunca subas `.env` al repositorio.
+
 Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
 
 ## Comandos
