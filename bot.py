@@ -375,6 +375,14 @@ async def setrules_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def announcement_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
     text = update.effective_message.text.partition(" ")[2].strip()
+    if not text or all(not any(char.isalnum() for char in part) for part in context.args):
+        admin_states[update.effective_user.id] = {"flow": "announcement"}
+        await update.effective_message.reply_text("📢 Escribe ahora el mensaje del anuncio. También puedes responder a un mensaje con /anuncio para copiarlo al grupo.\n\n/cancelar para salir.")
+        return
+    await publish_announcement(update, context, text)
+
+
+async def publish_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     try:
         source = update.effective_message.reply_to_message
         footer = f"\n\n— Enviado por {mention(update.effective_user)}"
@@ -390,7 +398,7 @@ async def announcement_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await context.bot.send_message(GROUP_ID, f"📢 <b>ANUNCIO</b>\n\n{esc(text)}{footer}", parse_mode=ParseMode.HTML)
         else:
             await update.effective_message.reply_text("Escribe /anuncio texto o responde con /anuncio a un mensaje multimedia."); return
-        await update.effective_message.reply_text("✅ Anuncio enviado.")
+        await update.effective_message.reply_text("✅ Anuncio enviado correctamente al grupo.")
     except Exception as exc: LOG.exception("announcement"); await update.effective_message.reply_text(f"❌ No se pudo anunciar: {esc(exc)}")
 
 
@@ -428,7 +436,8 @@ async def setserver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
     settings = await store.load("settings.json")
-    if not context.args:
+    ui_only = context.args and all(not any(char.isalnum() for char in part) for part in context.args)
+    if not context.args or ui_only:
         actions = settings.get("word_actions", {})
         words = settings.get("bad_words", [])
         display = ", ".join(f"{word} ({actions.get(word, 'escalate')})" for word in words) or "ninguna"
@@ -457,7 +466,8 @@ async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def auto_reply_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
     config = await store.load("auto_replies.json")
-    if not context.args:
+    ui_only = context.args and all(not any(char.isalnum() for char in part) for part in context.args)
+    if not context.args or ui_only:
         status = "activo" if config.get("enabled", True) else "inactivo"
         await update.effective_message.reply_text(f"Respuestas automáticas: {status}\n" + "\n".join(f"• {k}: {v}" for k, v in config.get("rules", {}).items()))
         return
@@ -719,6 +729,18 @@ async def panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     call = update.callback_query; await call.answer()
     if not await is_admin(call.from_user.id): return
     section = call.data.split(":", 1)[1]
+    if section == "announcement":
+        admin_states[call.from_user.id] = {"flow": "announcement"}
+        await call.message.reply_text("📢 Escribe ahora el mensaje que quieres publicar en GAMAER CITY.\n\n/cancelar para salir.")
+        return
+    if section == "setserver":
+        admin_states[call.from_user.id] = {"flow": "setserver"}
+        await call.message.reply_text("🌐 Escribe la IP y opcionalmente el nombre. Ejemplo: 123.45.67.89 GAMAER CITY")
+        return
+    if section == "setwipe":
+        admin_states[call.from_user.id] = {"flow": "setwipe"}
+        await call.message.reply_text("🧨 Escribe la fecha UTC con formato DD/MM/YYYY HH:MM. Ejemplo: 20/11/2026 19:00")
+        return
     if section in {"admin", "mod"}:
         admin_states[call.from_user.id] = {"flow": "assign_role", "role": "admin" if section == "admin" else "moderator"}
         await call.message.reply_text(f"Escribe el ID numérico para asignar el rol {admin_states[call.from_user.id]['role']}.")
@@ -821,7 +843,8 @@ async def pin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def maintenance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
     settings = await store.load("settings.json")
-    if not context.args or context.args[0].lower() not in {"on", "off"}:
+    ui_only = context.args and all(not any(char.isalnum() for char in part) for part in context.args)
+    if not context.args or ui_only or context.args[0].lower() not in {"on", "off"}:
         await update.effective_message.reply_text(f"Mantenimiento: {'activo' if settings.get('maintenance') else 'inactivo'}"); return
     settings["maintenance"] = context.args[0].lower() == "on"; await store.save("settings.json", settings); await audit("maintenance", update.effective_user.id, details=str(settings["maintenance"]))
     await update.effective_message.reply_text("✅ Modo mantenimiento actualizado.")
@@ -829,7 +852,7 @@ async def maintenance_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def panel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔎 Enlaces", callback_data="panel:links"), InlineKeyboardButton("🎫 Tickets", callback_data="panel:tickets")], [InlineKeyboardButton("📜 Reglas", callback_data="panel:rules"), InlineKeyboardButton("🌐 Servidor", callback_data="panel:server")], [InlineKeyboardButton("👮 Admin", callback_data="panel:admin"), InlineKeyboardButton("🛡️ Mod", callback_data="panel:mod")], [InlineKeyboardButton("🛠️ Mantenimiento", callback_data="panel:maintenance")]])
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("📢 Crear anuncio", callback_data="panel:announcement")], [InlineKeyboardButton("🌐 Configurar IP", callback_data="panel:setserver"), InlineKeyboardButton("🧨 Configurar wipe", callback_data="panel:setwipe")], [InlineKeyboardButton("🔎 Enlaces", callback_data="panel:links"), InlineKeyboardButton("🎫 Tickets", callback_data="panel:tickets")], [InlineKeyboardButton("📜 Reglas", callback_data="panel:rules"), InlineKeyboardButton("👮 Admin", callback_data="panel:admin")], [InlineKeyboardButton("🛡️ Mod", callback_data="panel:mod"), InlineKeyboardButton("🛠️ Mantenimiento", callback_data="panel:maintenance")]])
     await update.effective_message.reply_text("🛠️ <b>Panel de GAMAER CITY</b>\nSelecciona una sección:", parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 
@@ -998,6 +1021,21 @@ async def cerrar_encuesta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     state = admin_states.get(update.effective_user.id)
+    if state and state.get("flow") == "setserver":
+        admin_states.pop(update.effective_user.id, None)
+        args = update.effective_message.text.split()
+        if not args or not re.fullmatch(r"[A-Za-z0-9_.:-]+", args[0]): await update.effective_message.reply_text("❌ IP inválida."); return
+        server = await store.load("server.json"); server.update({"ip": args[0], "name": " ".join(args[1:]) or server.get("name", GROUP_NAME)}); await store.save("server.json", server); await refresh_pinned_message(context); await update.effective_message.reply_text("✅ IP del servidor guardada y publicada."); return
+    if state and state.get("flow") == "setwipe":
+        admin_states.pop(update.effective_user.id, None)
+        try:
+            target = datetime.strptime(update.effective_message.text.strip(), "%d/%m/%Y %H:%M").replace(tzinfo=timezone.utc); config = await store.load("wipe_config.json"); config["manual"] = target.isoformat(); await store.save("wipe_config.json", config); await update.effective_message.reply_text(f"✅ Wipe guardado: {target.strftime('%d/%m/%Y %H:%M')} UTC.")
+        except ValueError: await update.effective_message.reply_text("❌ Formato inválido. Usa DD/MM/YYYY HH:MM.")
+        return
+    if state and state.get("flow") == "announcement":
+        admin_states.pop(update.effective_user.id, None)
+        await publish_announcement(update, context, update.effective_message.text.strip())
+        return
     if state and state.get("flow") == "assign_role":
         if not update.effective_message.text.lstrip("-").isdigit(): await update.effective_message.reply_text("Escribe un ID numérico o /cancelar."); return
         user_id = int(update.effective_message.text); role = state["role"]; admin_states.pop(update.effective_user.id, None); roles = await store.load("roles.json"); roles[str(user_id)] = role; await store.save("roles.json", roles)
@@ -1028,6 +1066,13 @@ async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def media_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat and update.effective_chat.type == "private" and admin_states.get(update.effective_user.id, {}).get("flow") == "announcement":
+        admin_states.pop(update.effective_user.id, None)
+        try:
+            await context.bot.copy_message(GROUP_ID, update.effective_chat.id, update.effective_message.message_id)
+            await update.effective_message.reply_text("✅ Multimedia enviada correctamente al grupo.")
+        except Exception as exc: await update.effective_message.reply_text(f"❌ No se pudo enviar al grupo: {esc(exc)}")
+        return
     if not group_message(update): return
     if (await store.load("settings.json")).get("maintenance") and not await is_admin(update.effective_user.id):
         try: await update.effective_message.delete()
@@ -1074,7 +1119,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler("claimadmin", claim_admin_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
     app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler(["admin", "mod", "support", "announcer"], role_alias_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
     app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(public_nav_callback, pattern=r"^nav:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
-    app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))
+    app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.TEXT & ~filters.COMMAND, media_router))
     app.add_error_handler(error_handler)
     return app
 
