@@ -20,6 +20,10 @@ class Rust133AsyncBotTests(unittest.TestCase):
         self.assertTrue(bot.link_allowed("https://rust.facepunch.com/news"))
         self.assertFalse(bot.link_allowed("https://unknown.example/offer"))
 
+    def test_word_filter_uses_word_boundaries(self):
+        self.assertEqual(bot.word_matches("Esto contiene estafa", ["estafa"]), "estafa")
+        self.assertIsNone(bot.word_matches("estafador", ["estafa"]))
+
     def test_json_store_round_trip(self):
         async def run():
             with tempfile.TemporaryDirectory() as directory:

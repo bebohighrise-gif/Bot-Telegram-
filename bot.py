@@ -65,8 +65,9 @@ class JsonStore:
             "warns.json": {}, "responder_sessions.json": {}, "tickets.json": {},
             "tickets_cerrados.json": {}, "welcome.json": {"enabled": False, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
             "wipe_config.json": {"manual": None, "reminders": []}, "encuestas.json": {},
+            "server.json": {"name": "Rust 133 Dev Blog", "ip": "", "port": 28015, "connect": ""},
             "rules.txt": "📜 <b>Reglas de Rust 133 Dev Blog</b>\n\n1. Respeta a la comunidad.\n2. No spam, estafas ni phishing.\n3. No enlaces a otros servidores sin autorización.\n4. No contenido ilegal o datos personales.\n5. La moderación puede borrar mensajes y sancionar cuentas.",
-            "settings.json": {"moderation": True},
+            "settings.json": {"moderation": True, "word_filter": True, "bad_words": []},
         }
 
     def path(self, name: str) -> Path:
@@ -145,11 +146,46 @@ def link_allowed(url: str) -> bool:
     return any(host == domain or host.endswith("." + domain) for domain in NO_LINKS)
 
 
+def word_matches(text: str, words: list[str]) -> str | None:
+    normalized = text.casefold()
+    for word in words:
+        candidate = str(word).strip().casefold()
+        if candidate and re.search(r"(?<!\w)" + re.escape(candidate) + r"(?!\w)", normalized):
+            return candidate
+    return None
+
+
+async def moderate_words(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    message = update.effective_message
+    if not group_message(update) or not message.from_user or await is_admin(message.from_user.id):
+        return False
+    settings = await store.load("settings.json")
+    matched = word_matches(message.text or message.caption or "", settings.get("bad_words", []))
+    if not settings.get("moderation", True) or not settings.get("word_filter", True) or not matched:
+        return False
+    try:
+        await message.delete()
+        await context.bot.send_message(GROUP_ID, "⚠️ El mensaje fue retirado por incumplir las reglas de la comunidad.")
+    except Exception:
+        LOG.warning("No se pudo retirar mensaje filtrado", exc_info=True)
+    warns = await store.load("warns.json")
+    key = f"{GROUP_ID}:{message.from_user.id}"
+    warns[key] = int(warns.get(key, 0)) + 1
+    await store.save("warns.json", warns)
+    if warns[key] >= 3:
+        try:
+            await context.bot.ban_chat_member(GROUP_ID, message.from_user.id)
+            await context.bot.send_message(GROUP_ID, f"🚫 {mention(message.from_user)} ha sido expulsado tras 3 infracciones.", parse_mode=ParseMode.HTML)
+        except Exception:
+            LOG.warning("No se pudo sancionar automáticamente", exc_info=True)
+    return True
+
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     admin_text = ("\n\n<b>Admin</b>\n/addadmin /deladmin /listadmins\n/pendientes /responder /anuncio\n"
                   "/moderacion on|off /ban /kick /mute /unmute /warn\n/soporte /tickets /bienvenida /setbienvenida\n"
-                  "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas") if await is_admin(update.effective_user.id) else ""
-    await update.effective_message.reply_text("🤖 <b>Rust 133 Dev Blog</b>\n/reglas — reglas\n/devblog — último devblog\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML)
+                  "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas\n/servidor /setservidor /filtro") if await is_admin(update.effective_user.id) else ""
+    await update.effective_message.reply_text("🤖 <b>Rust 133 Dev Blog</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP y puerto del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML)
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -210,6 +246,52 @@ async def moderation_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not context.args or context.args[0].lower() not in {"on", "off"}: await update.effective_message.reply_text("Usa /moderacion on|off"); return
     settings = await store.load("settings.json"); settings["moderation"] = context.args[0].lower() == "on"; await store.save("settings.json", settings)
     await update.effective_message.reply_text(f"✅ Moderación {'activada' if settings['moderation'] else 'desactivada'}.")
+
+
+async def server_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    server = await store.load("server.json")
+    if not server.get("ip"):
+        await update.effective_message.reply_text("ℹ️ La IP del servidor todavía no ha sido configurada por el equipo.")
+        return
+    connect = server.get("connect") or f"client.connect {server['ip']}:{server.get('port', 28015)}"
+    await update.effective_message.reply_text(
+        f"🎮 <b>{esc(server.get('name', 'Servidor Rust'))}</b>\n"
+        f"🌐 IP: <code>{esc(server['ip'])}:{esc(server.get('port', 28015))}</code>\n"
+        f"📋 Conexión: <code>{esc(connect)}</code>", parse_mode=ParseMode.HTML)
+
+
+async def setserver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await private_admin(update): return
+    if len(context.args) < 2:
+        await update.effective_message.reply_text("Usa /setservidor IP PUERTO [nombre] [comando_connect]")
+        return
+    ip, raw_port = context.args[0], context.args[1]
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]+", ip) or not raw_port.isdigit() or not 1 <= int(raw_port) <= 65535:
+        await update.effective_message.reply_text("IP o puerto inválido."); return
+    server = await store.load("server.json")
+    server.update({"ip": ip, "port": int(raw_port), "name": " ".join(context.args[2:]) or server.get("name", "Servidor Rust")})
+    await store.save("server.json", server)
+    await update.effective_message.reply_text("✅ Datos del servidor guardados.")
+
+
+async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await private_admin(update): return
+    settings = await store.load("settings.json")
+    if not context.args:
+        await update.effective_message.reply_text(f"Filtro: {'activo' if settings.get('word_filter', True) else 'inactivo'}\nPalabras: {', '.join(settings.get('bad_words', [])) or 'ninguna'}")
+        return
+    action, values = context.args[0].lower(), context.args[1:]
+    if action in {"on", "off"}:
+        settings["word_filter"] = action == "on"
+    elif action == "add" and values:
+        settings["bad_words"] = sorted(set(settings.get("bad_words", []) + [x.casefold() for x in values]))
+    elif action == "remove" and values:
+        settings["bad_words"] = [x for x in settings.get("bad_words", []) if x.casefold() not in {v.casefold() for v in values}]
+    elif action == "list":
+        await update.effective_message.reply_text("Palabras filtradas: " + (", ".join(settings.get("bad_words", [])) or "ninguna")); return
+    else:
+        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra, /filtro remove palabra o /filtro list"); return
+    await store.save("settings.json", settings); await update.effective_message.reply_text("✅ Filtro actualizado.")
 
 
 async def moderate_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -335,6 +417,45 @@ async def setwipe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except ValueError: await update.effective_message.reply_text("Usa /setwipe DD/MM/YYYY HH:MM")
 
 
+async def automation_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Tareas idempotentes: se ejecuta cada minuto y tolera reinicios."""
+    try:
+        polls = await store.load("encuestas.json")
+        changed = False
+        for poll in polls.values():
+            if poll.get("closed") or not poll.get("expires_at"):
+                continue
+            if datetime.fromisoformat(poll["expires_at"]) <= datetime.now(timezone.utc):
+                poll["closed"] = True; changed = True
+                counts = [sum(1 for vote in poll.get("votes", {}).values() if vote == i) for i in range(len(poll["options"]))]
+                text = "📊 <b>Encuesta cerrada: " + esc(poll["title"]) + "</b>\n\n" + "\n".join(f"{i + 1}. {esc(x)} — {counts[i]} votos" for i, x in enumerate(poll["options"]))
+                try: await context.bot.edit_message_text(GROUP_ID, poll["message_id"], text, parse_mode=ParseMode.HTML)
+                except Exception: LOG.warning("No se pudo cerrar encuesta %s", poll.get("id"))
+        if changed: await store.save("encuestas.json", polls)
+
+        config = await store.load("wipe_config.json"); target = None
+        if config.get("manual"):
+            try: target = datetime.fromisoformat(config["manual"])
+            except ValueError: target = None
+        target = target or next_wipe(); reminder_key = target.isoformat()
+        if target - timedelta(hours=1) <= datetime.now(timezone.utc) < target and config.get("last_reminder") != reminder_key:
+            for user_id in config.get("reminders", []):
+                try: await context.bot.send_message(user_id, f"⏰ Recordatorio: el wipe de Rust es en menos de una hora ({target.strftime('%d/%m/%Y %H:%M')} UTC).")
+                except Exception: pass
+            config["last_reminder"] = reminder_key; await store.save("wipe_config.json", config)
+
+        tickets = await store.load("tickets.json"); cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        for ticket in tickets.values():
+            if ticket.get("status") == "abierto" and datetime.fromisoformat(ticket["timestamp"]) < cutoff and ticket.get("timeout_notified") is not True:
+                ticket["timeout_notified"] = True
+                for admin in admins:
+                    try: await context.bot.send_message(admin, f"⏰ El ticket #{ticket['ticket_id']} lleva más de 24 horas abierto.")
+                    except Exception: pass
+        await store.save("tickets.json", tickets)
+    except Exception:
+        LOG.exception("automation_tick")
+
+
 async def soporte_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if group_message(update):
         try: await update.effective_message.delete()
@@ -414,7 +535,12 @@ async def encuesta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     parts = [part.strip() for part in raw.split("|") if part.strip()]
     if len(parts) < 3 or len(parts) > 11:
         await update.effective_message.reply_text("Usa /encuesta Título | Opción 1 | Opción 2 (máximo 10 opciones)."); return
-    polls = await store.load("encuestas.json"); poll_id = uid(); poll = {"id": poll_id, "title": parts[0], "options": parts[1:], "votes": {}, "closed": False, "created_at": now()}
+    duration = None
+    if parts[-1].lower().startswith("duracion="):
+        raw_duration = parts.pop().split("=", 1)[1].lower(); match = re.fullmatch(r"(\d+)(m|h|d)", raw_duration)
+        if match: duration = timedelta(**{"minutes": int(match[1])} if match[2] == "m" else {"hours": int(match[1])} if match[2] == "h" else {"days": int(match[1])})
+    if len(parts) < 3: await update.effective_message.reply_text("Debes indicar al menos dos opciones."); return
+    polls = await store.load("encuestas.json"); poll_id = uid(); poll = {"id": poll_id, "title": parts[0], "options": parts[1:], "votes": {}, "closed": False, "created_at": now(), "expires_at": (datetime.now(timezone.utc) + duration).isoformat() if duration else None}
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(option, callback_data=f"voto:{poll_id}:{index}")] for index, option in enumerate(poll["options"])])
     message = await context.bot.send_message(GROUP_ID, "📊 <b>Encuesta: " + esc(poll["title"]) + "</b>\n\n" + "\n".join(f"{i + 1}. {esc(x)} — 0 votos" for i, x in enumerate(poll["options"])), parse_mode=ParseMode.HTML, reply_markup=keyboard)
     poll["message_id"] = message.message_id; polls[poll_id] = poll; await store.save("encuestas.json", polls); await update.effective_message.reply_text(f"✅ Encuesta publicada: #{poll_id}")
@@ -462,23 +588,26 @@ async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
     if not group_message(update): return
     recent_messages.append(update.effective_message)
+    if await moderate_words(update, context): return
     await translate_message(update, context)
 
 
 async def media_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not group_message(update): return
-    recent_messages.append(update.effective_message); await media_moderation(update, context)
+    recent_messages.append(update.effective_message)
+    if await moderate_words(update, context): return
+    await media_moderation(update, context)
 
 
 async def post_init(application: Application) -> None:
-    await refresh_admins(); LOG.info("Bot iniciado con admins %s y grupo %s", sorted(admins), GROUP_ID)
+    await refresh_admins(); application.job_queue.run_repeating(automation_tick, interval=60, first=10, name="rust133-automation"); LOG.info("Bot iniciado con admins %s y grupo %s", sorted(admins), GROUP_ID)
 
 
 def build_app() -> Application:
     if not valid_token() or not GROUP_ID or not admins: raise RuntimeError("Configura TELEGRAM_TOKEN, GROUP_ID y ADMIN_IDS")
     app = Application.builder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("wipe", wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
-    app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
+    app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
     app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))
     return app

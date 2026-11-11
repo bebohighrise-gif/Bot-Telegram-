@@ -12,6 +12,9 @@ Bot asíncrono basado en `python-telegram-bot` v20+ para administrar el grupo de
 - Tickets privados: `/soporte`, `/tickets`, botones para atender/cerrar y respuestas del equipo.
 - Traducción automática al español de texto del grupo mediante `deep-translator`.
 - `/reglas`, `/setreglas`, `/devblog` y `/wipe` con recordatorio privado.
+- `/servidor` muestra IP, puerto y comando `client.connect` del servidor de Rust.
+- Filtro de palabras configurable: `/filtro on|off`, `/filtro add palabra`, `/filtro remove palabra`, `/filtro list`.
+- Automatizaciones cada minuto: cierre de encuestas vencidas, recordatorios de wipe una hora antes y aviso de tickets abiertos durante más de 24 horas.
 - Bienvenida configurable mediante `/bienvenida on|off` y `/setbienvenida`.
 - Persistencia JSON atómica protegida por `asyncio.Lock`.
 
@@ -46,13 +49,15 @@ python bot.py
 python main.py
 ```
 
-Los archivos JSON se crean en `DATA_DIR`: `admins.json`, `pending_links.json`, `resolved_links.json`, `warns.json`, `tickets.json`, `tickets_cerrados.json`, `welcome.json`, `wipe_config.json`, `encuestas.json`, `settings.json` y `rules.txt`. Haz copias de seguridad de ese directorio y no lo subas al repositorio.
+Los archivos JSON se crean en `DATA_DIR`: `admins.json`, `pending_links.json`, `resolved_links.json`, `warns.json`, `tickets.json`, `tickets_cerrados.json`, `welcome.json`, `wipe_config.json`, `encuestas.json`, `server.json`, `settings.json` y `rules.txt`. Haz copias de seguridad de ese directorio y no lo subas al repositorio.
 
 ## Comandos principales
 
-Usuarios: `/help`, `/reglas`, `/devblog`, `/wipe`, `/wipe recordatorio`, `/soporte`.
+Usuarios: `/help`, `/reglas`, `/devblog`, `/servidor`, `/wipe`, `/wipe recordatorio`, `/soporte`.
 
-Administradores: `/addadmin ID`, `/deladmin ID`, `/listadmins`, `/anuncio`, `/pendientes`, `/moderacion on|off`, `/ban ID`, `/kick ID`, `/mute ID MIN`, `/unmute ID`, `/warn ID`, `/tickets`, `/bienvenida on|off`, `/setbienvenida texto`, `/setreglas texto`, `/setwipe DD/MM/YYYY HH:MM`.
+Administradores: `/addadmin ID`, `/deladmin ID`, `/listadmins`, `/anuncio`, `/pendientes`, `/moderacion on|off`, `/setservidor IP PUERTO Nombre`, `/filtro on|off`, `/filtro add palabra`, `/filtro remove palabra`, `/ban ID`, `/kick ID`, `/mute ID MIN`, `/unmute ID`, `/warn ID`, `/tickets`, `/bienvenida on|off`, `/setbienvenida texto`, `/setreglas texto`, `/setwipe DD/MM/YYYY HH:MM`, `/encuesta Título | Opción 1 | Opción 2 | duracion=30m`.
+
+El filtro borra el mensaje, registra una advertencia y banea automáticamente después de tres infracciones. Los admins quedan excluidos del filtro. El bot necesita permisos para borrar mensajes, restringir y banear usuarios.
 
 ## Seguridad
 
