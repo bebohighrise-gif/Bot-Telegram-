@@ -1,67 +1,81 @@
-# OnlyFans_ManagerBot — V9
+# Rust 133 Devblog — Bot de comunidad
 
-Bot de Telegram para perfiles de creadores, planes de pago manual, contenido, moderación y solicitudes de videollamada. Esta versión mantiene SQLite y `pyTelegramBotAPI`.
+Bot de Telegram para administrar el grupo de la comunidad: anuncios desde el chat privado del bot, moderación de usuarios, reglas, revisión de enlaces y traducción opcional al español.
 
-> **Estado:** el código contiene pruebas automáticas básicas, pero no debe considerarse certificado ni listo para producción. Los pagos siguen siendo revisados manualmente. La cámara de la Mini App no transmite las imágenes: al iniciar la solicitud, el bot pide que el usuario adjunte documento y selfie en el chat privado.
+## Funciones
 
-## Requisitos
+- `/anuncio texto`: publica un anuncio en el grupo.
+- `/anuncio` respondiendo a una foto, vídeo, archivo, audio o animación: copia el mensaje multimedia al grupo.
+- `/wipe fecha y detalles`: publica un aviso de wipe con formato destacado.
+- `/ban ID`, `/unban ID` y `/warn ID motivo`: moderación administrativa.
+- `/reglas` y `/setreglas texto`: reglas configurables.
+- `/enlaces off|review|auto`: política para enlaces no autorizados.
+  - `review` retira el mensaje, lo registra y envía botones de **Expulsar** o **No hacer nada** a los administradores.
+  - `auto` retira el mensaje y expulsa automáticamente al autor.
+  - `off` no modera enlaces.
+- `/permitir dominio.com`: añade un dominio permitido durante la ejecución.
+- `/links`: lista enlaces pendientes de revisión.
+- `/estado`: muestra el estado de configuración.
+- Traducción automática opcional de mensajes que no parecen estar en español mediante Gemini.
 
-- Python 3.10 o posterior.
-- Un bot creado con [@BotFather](https://t.me/BotFather).
-- Un `ADMIN_ID` numérico positivo.
-- Para abrir la Mini App, una URL HTTPS estable y configurada en BotFather.
+## Requisitos y permisos
 
-## Instalación y configuración
-
-No pegues el token en `main.py`, en el README ni en mensajes. Configura las variables en el entorno del servicio que ejecutará el bot:
+1. Crea el bot con [@BotFather](https://t.me/BotFather).
+2. Desactiva **Privacy Mode** en BotFather para que el bot pueda revisar mensajes del grupo.
+3. Añade el bot al grupo como administrador con permiso para borrar mensajes y restringir/banear usuarios.
+4. Instala Python 3.10+.
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
+```
 
-export TELEGRAM_TOKEN='token_entregado_por_BotFather'
+## Configuración
+
+No guardes el token en el repositorio. Configura variables en el servicio donde ejecutarás el bot:
+
+```bash
+export TELEGRAM_TOKEN='TOKEN_DE_BOTFATHER'
 export ADMIN_ID='123456789'
-export DB_FILE='/ruta/persistente/bot.db'
-# Opcionales:
-export WEBAPP_VERIFICATION_URL='https://tu-dominio.example/verification.html'
 export GROUP_ID='-1001234567890'
-export GROUP_INVITE='https://t.me/tu_invitacion'
+export DB_FILE='/ruta/persistente/rust133bot.db'
+
+# Opcional: varios administradores separados por comas
+export ADMIN_IDS='123456789,987654321'
+
+# Dominios permitidos, separados por comas
+export ALLOWED_DOMAINS='rust.facepunch.com,facepunch.com,steamcommunity.com,store.steampowered.com'
+
+# Traducción opcional
+export TRANSLATION_ENABLED='1'
+export GEMINI_API_KEY='...'
+export GEMINI_MODEL='gemini-2.5-flash'
 ```
 
-Protege el archivo de base de datos y el entorno del proceso con permisos mínimos. Si un token real se compartió o comprometió, revócalo en BotFather y crea uno nuevo.
+El modo de enlaces inicial es `review`. La base SQLite se crea de forma idempotente en `DB_FILE` y contiene registros de enlaces y acciones de moderación. Haz copias de seguridad del archivo antes de actualizarlo.
 
-## Ejecutar
+## Ejecución
 
 ```bash
-python main.py
+TELEGRAM_TOKEN="$TELEGRAM_TOKEN" ADMIN_ID="$ADMIN_ID" GROUP_ID="$GROUP_ID" python main.py
 ```
 
-El proceso valida la configuración antes de iniciar. Para producción, ejecútalo bajo un supervisor de servicios y usa un almacenamiento persistente con copias de seguridad cifradas y probadas.
+Para producción, utiliza un supervisor como systemd, Docker o el proveedor de hosting elegido, con almacenamiento persistente para `DB_FILE`.
 
-## Mini App y verificación
-
-1. Publica `webapp/verification.html` en HTTPS y configura la misma URL en `WEBAPP_VERIFICATION_URL` y BotFather.
-2. El bot abre la Mini App desde un botón de teclado de respuesta de Telegram, necesario para entregar `web_app_data`. La Mini App permite capturar y revisar fotos localmente, pero **no las sube**. La señal solo avisa al bot para pedir las imágenes por el chat privado.
-3. El usuario debe adjuntar primero la foto del documento y después la selfie. El bot reenvía ambas al administrador para revisión.
-4. No habilites esta función hasta definir aviso de privacidad, base legal, acceso autorizado, período de retención, proceso de borrado y protección de copias para datos de identidad. El bot no aplica todavía eliminación automática de esas fotos.
-
-## Pruebas
+## Verificación
 
 ```bash
-. .venv/bin/activate
-TELEGRAM_TOKEN='123456:TEST_ONLY' ADMIN_ID='123456789' python -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 python -m py_compile main.py
-pip-audit -r requirements.txt
 ```
 
-El token de prueba sirve solo para cargar código y ejecutar pruebas; no permite conectarse a Telegram. `pip-audit` debe instalarse previamente si aún no está disponible (`pip install pip-audit`).
+La prueba automática cubre extracción/clasificación de enlaces, reglas de dominios, detección básica de español y validación de configuración. La conexión real con Telegram, los permisos del grupo y la traducción externa deben comprobarse con un bot de pruebas.
 
-## Seguridad y operación pendientes
+## Notas de seguridad
 
-- Sustituir la revisión manual de capturas por un proveedor de pagos con confirmación server-side antes de otorgar acceso.
-- Añadir límites de tasa, registros operativos sin datos sensibles, monitorización, gestión de errores y una estrategia probada de backup/restore.
-- Definir retención y borrado de IDs de archivos de documentos y selfies, junto con controles de acceso y respuesta ante incidentes.
-- No considerar `protect_content` una protección contra capturas de pantalla o redistribución.
-- Antes de actualizar desde una base V4, detener el proceso y hacer una copia recuperable. La inicialización añade columnas, convierte arrays antiguos de medios en filas, elimina la restricción V4 de una suscripción por creador conservando sus filas y crea los planes de creadores antiguos usando sus precios guardados; no reemplaza ni elimina el archivo SQLite.
-- Ejecutar las pruebas en cada cambio y probar manualmente los flujos de usuario y administrador con un bot de pruebas antes de desplegar.
+- Nunca subas `.env`, tokens ni una base de datos con información de usuarios.
+- Los usuarios administradores se autorizan por ID numérico; no se autoriza por nombre de usuario.
+- Telegram debe entregar al bot permisos explícitos para borrar y expulsar; el código no puede superar permisos de Telegram.
+- La traducción envía el texto del mensaje al proveedor configurado. Actívala solo si la comunidad acepta ese tratamiento.
+- `/enlaces auto` es una política agresiva: úsala únicamente cuando todos los dominios desconocidos deban provocar expulsión.
