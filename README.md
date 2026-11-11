@@ -1,29 +1,21 @@
-# Rust 133 Devblog — Bot de comunidad
+# Rust 133 Dev Blog — Bot de comunidad
 
-Bot de Telegram para administrar el grupo de la comunidad: anuncios desde el chat privado del bot, moderación de usuarios, reglas, revisión de enlaces y traducción opcional al español.
+Bot asíncrono basado en `python-telegram-bot` v20+ para administrar el grupo de Rust 133 Dev Blog.
 
-## Funciones
+## Incluye
 
-- `/anuncio texto`: publica un anuncio en el grupo.
-- `/anuncio` respondiendo a una foto, vídeo, archivo, audio o animación: copia el mensaje multimedia al grupo.
-- `/wipe fecha y detalles`: publica un aviso de wipe con formato destacado.
-- `/ban ID`, `/unban ID` y `/warn ID motivo`: moderación administrativa.
-- `/reglas` y `/setreglas texto`: reglas configurables.
-- `/enlaces off|review|auto`: política para enlaces no autorizados.
-  - `review` retira el mensaje, lo registra y envía botones de **Expulsar** o **No hacer nada** a los administradores.
-  - `auto` retira el mensaje y expulsa automáticamente al autor.
-  - `off` no modera enlaces.
-- `/permitir dominio.com`: añade un dominio permitido durante la ejecución.
-- `/links`: lista enlaces pendientes de revisión.
-- `/estado`: muestra el estado de configuración.
-- Traducción automática opcional de mensajes que no parecen estar en español mediante Gemini.
+- Administradores dinámicos: `/addadmin`, `/deladmin`, `/listadmins`.
+- Revisión de enlaces con persistencia, botones **Validar** y **Expulsar**, prevención de dobles resoluciones y `/pendientes`.
+- Anuncios privados con texto o respuesta a multimedia mediante `/anuncio`.
+- Moderación de enlaces y multimedia con `/moderacion on|off`.
+- `/ban`, `/kick`, `/mute`, `/unmute`, `/warn`; tres advertencias producen baneo.
+- Tickets privados: `/soporte`, `/tickets`, botones para atender/cerrar y respuestas del equipo.
+- Traducción automática al español de texto del grupo mediante `deep-translator`.
+- `/reglas`, `/setreglas`, `/devblog` y `/wipe` con recordatorio privado.
+- Bienvenida configurable mediante `/bienvenida on|off` y `/setbienvenida`.
+- Persistencia JSON atómica protegida por `asyncio.Lock`.
 
-## Requisitos y permisos
-
-1. Crea el bot con [@BotFather](https://t.me/BotFather).
-2. Desactiva **Privacy Mode** en BotFather para que el bot pueda revisar mensajes del grupo.
-3. Añade el bot al grupo como administrador con permiso para borrar mensajes y restringir/banear usuarios.
-4. Instala Python 3.10+.
+## Instalación
 
 ```bash
 python3 -m venv .venv
@@ -31,51 +23,37 @@ python3 -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Configuración
-
-No guardes el token en el repositorio. Configura variables en el servicio donde ejecutarás el bot:
+## Variables de entorno
 
 ```bash
 export TELEGRAM_TOKEN='TOKEN_DE_BOTFATHER'
-export ADMIN_ID='123456789'
 export GROUP_ID='-1001234567890'
-export DB_FILE='/ruta/persistente/rust133bot.db'
-
-# Opcional: varios administradores separados por comas
 export ADMIN_IDS='123456789,987654321'
-
-# Dominios permitidos, separados por comas
-export ALLOWED_DOMAINS='rust.facepunch.com,facepunch.com,steamcommunity.com,store.steampowered.com'
-
-# Traducción opcional
-export TRANSLATION_ENABLED='1'
-export GEMINI_API_KEY='...'
-export GEMINI_MODEL='gemini-2.5-flash'
+export DATA_DIR='/ruta/persistente/rust133-data'
 ```
 
-El modo de enlaces inicial es `review`. La base SQLite se crea de forma idempotente en `DB_FILE` y contiene registros de enlaces y acciones de moderación. Haz copias de seguridad del archivo antes de actualizarlo.
+`ADMIN_IDS` es la semilla inicial. Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos de enlaces y tickets.
 
-## Ejecución
+## Permisos y BotFather
+
+Añade el bot como administrador del grupo con permisos para borrar mensajes, restringir miembros y banear. Desactiva Privacy Mode en BotFather para que pueda observar mensajes del grupo. Para que el bot pueda enviar notificaciones privadas, cada admin debe iniciar el bot primero.
+
+## Ejecutar
 
 ```bash
-TELEGRAM_TOKEN="$TELEGRAM_TOKEN" ADMIN_ID="$ADMIN_ID" GROUP_ID="$GROUP_ID" python main.py
+python bot.py
+# o
+python main.py
 ```
 
-Para producción, utiliza un supervisor como systemd, Docker o el proveedor de hosting elegido, con almacenamiento persistente para `DB_FILE`.
+Los archivos JSON se crean en `DATA_DIR`: `admins.json`, `pending_links.json`, `resolved_links.json`, `warns.json`, `tickets.json`, `tickets_cerrados.json`, `welcome.json`, `wipe_config.json`, `encuestas.json`, `settings.json` y `rules.txt`. Haz copias de seguridad de ese directorio y no lo subas al repositorio.
 
-## Verificación
+## Comandos principales
 
-```bash
-python -m unittest discover -s tests -v
-python -m py_compile main.py
-```
+Usuarios: `/help`, `/reglas`, `/devblog`, `/wipe`, `/wipe recordatorio`, `/soporte`.
 
-La prueba automática cubre extracción/clasificación de enlaces, reglas de dominios, detección básica de español y validación de configuración. La conexión real con Telegram, los permisos del grupo y la traducción externa deben comprobarse con un bot de pruebas.
+Administradores: `/addadmin ID`, `/deladmin ID`, `/listadmins`, `/anuncio`, `/pendientes`, `/moderacion on|off`, `/ban ID`, `/kick ID`, `/mute ID MIN`, `/unmute ID`, `/warn ID`, `/tickets`, `/bienvenida on|off`, `/setbienvenida texto`, `/setreglas texto`, `/setwipe DD/MM/YYYY HH:MM`.
 
-## Notas de seguridad
+## Seguridad
 
-- Nunca subas `.env`, tokens ni una base de datos con información de usuarios.
-- Los usuarios administradores se autorizan por ID numérico; no se autoriza por nombre de usuario.
-- Telegram debe entregar al bot permisos explícitos para borrar y expulsar; el código no puede superar permisos de Telegram.
-- La traducción envía el texto del mensaje al proveedor configurado. Actívala solo si la comunidad acepta ese tratamiento.
-- `/enlaces auto` es una política agresiva: úsala únicamente cuando todos los dominios desconocidos deban provocar expulsión.
+No guardes el token en el código. La aprobación de enlaces, tickets y botones comprueba el ID del administrador y el estado persistente antes de ejecutar acciones. `/addadmin` y `/deladmin` aceptan IDs numéricos: Telegram no permite resolver de manera segura cualquier `@username` si el usuario nunca interactuó con el bot.
