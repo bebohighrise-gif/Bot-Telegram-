@@ -79,3 +79,21 @@ python bot.py
 # o
 python main.py
 ```
+
+## Funciones avanzadas
+
+- **Verificación segura de Telegram:** los nuevos miembros quedan restringidos hasta pulsar el botón de aceptación de reglas. El bot guarda la verificación en `verified.json` y solo libera al usuario que pulsó su propio botón.
+- **Apelaciones:** `/apelar motivo` en privado envía la solicitud a los administradores.
+- **Registro:** las acciones relevantes se guardan en `moderation_logs.json`.
+- **Tickets y reportes:** `/soporte`, `/tickets` y `/reportar USER_ID motivo`.
+- **Eventos:** `/evento crear Título | fecha | detalles`, `/eventos` y `/evento cancelar ID`.
+- **Sorteos:** `/sorteo crear Premio`, `/sorteos`; los usuarios participan con un botón y no pueden registrarse dos veces.
+- **Calendario de wipe:** `/wipe` y `/wipes`, con fecha manual y recordatorios privados.
+- **Mensaje oficial fijado:** responde a un mensaje del grupo con `/fijar` como administrador.
+- **Enlaces oficiales:** `/enlaces` para usuarios y `/setenlaces discord|web|channel|donaciones URL` para administradores.
+- **Panel:** `/panel` muestra botones de enlaces, tickets, reglas, servidor y mantenimiento.
+- **Roles:** `/rol USER_ID admin|moderator|support|announcer|user`.
+- **Mantenimiento:** `/mantenimiento on|off` bloquea mensajes normales de usuarios mientras los administradores siguen operativos.
+- **Recuperación:** los errores se registran y se notifica a los administradores sin detener el polling.
+
+El filtrado y los enlaces siguen requiriendo configuración explícita. Las sanciones graves deben revisarse conforme a las reglas de GAMAER CITY.
