@@ -310,9 +310,10 @@ async def moderate_words(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    admin_text = ("\n\n<b>Admin</b>\n/addadmin /deladmin /listadmins\n/pendientes /responder /anuncio\n"
-                  "/moderacion on|off /ban /kick /mute /unmute /warn\n/soporte /tickets /bienvenida /setbienvenida\n"
-                  "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas\n/servidor /setservidor /filtro /auto") if await is_admin(update.effective_user.id) else ""
+    admin_text = ("\n\n<b>🛠️ Administración</b>\n/addadmin /admin /mod /support /announcer /deladmin /listadmins\n"
+                  "/panel /anuncio /pendientes /responder /tickets /moderacion /filtro /auto\n"
+                  "/ban /kick /mute /unmute /warn /setreglas /setservidor /setenlaces /setwipe\n"
+                  "/mantenimiento /fijar /rol /evento /sorteo /encuesta /cerrar_encuesta /bienvenida /setbienvenida") if await is_admin(update.effective_user.id) else ""
     keyboard = [[KeyboardButton("/reglas 📜"), KeyboardButton("/servidor 🎮"), KeyboardButton("/wipe 🧨")], [KeyboardButton("/soporte 🎫"), KeyboardButton("/enlaces 🔗"), KeyboardButton("/eventos 📅")]]
     if await is_admin(update.effective_user.id):
         keyboard += [[KeyboardButton("/panel 🛠️"), KeyboardButton("/anuncio 📢"), KeyboardButton("/tickets 🎫")], [KeyboardButton("/filtro 🛡️"), KeyboardButton("/auto 🤖"), KeyboardButton("/mantenimiento 🔧")], [KeyboardButton("/panel 👮"), KeyboardButton("/panel 🛡️"), KeyboardButton("/sorteo 🎁")]]
@@ -983,9 +984,8 @@ async def poll_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def encuestas_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not await private_admin(update): return
     polls = await store.load("encuestas.json"); active = [p for p in polls.values() if not p.get("closed")]
-    await update.effective_message.reply_text("\n".join(f"#{p['id']} — {p['title']} ({len(p['votes'])} votos)" for p in active) or "No hay encuestas activas.")
+    await update.effective_message.reply_text("📊 <b>Encuestas activas</b>\n" + "\n".join(f"• #{p['id']} — {esc(p['title'])} ({len(p['votes'])} votos)" for p in active) if active else "📊 No hay encuestas configuradas.", parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
 async def cerrar_encuesta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
