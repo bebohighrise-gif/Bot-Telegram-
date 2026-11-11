@@ -43,6 +43,8 @@ export DATA_DIR='/ruta/persistente/gamaer-city-data'
 
 El archivo `.env` es obligatorio. `bot.py` y `main.py` lo buscan en la carpeta del proyecto, no solo en el directorio actual. Solo `TELEGRAM_TOKEN` y `GROUP_ID` son obligatorios. `ADMIN_IDS` y `BOT_OWNER_ID` son opcionales. `BOT_OWNER_ID` es tu ID personal de Telegram como propietario del bot creado en BotFather; permite administrar el bot desde el chat privado aunque no seas propietario del grupo. Usa `.env.example` como plantilla y nunca subas `.env` al repositorio.
 
+Al iniciar, el bot registra automáticamente los comandos públicos en grupos y chats privados. Los comandos administrativos se registran únicamente en el menú privado del propietario (`BOT_OWNER_ID`) y de los IDs que estén en `ADMIN_IDS`. Telegram puede tardar unos segundos en actualizar el botón `/` o el menú. También puedes configurarlos desde `@BotFather` con `/setcommands`, pero no es necesario si el bot ha iniciado correctamente.
+
 Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
 
 ## Comandos

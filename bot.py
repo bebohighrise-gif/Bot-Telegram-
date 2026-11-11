@@ -21,7 +21,7 @@ from typing import Any
 import feedparser
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonCommands, Update
 from telegram.constants import ChatMemberStatus, ParseMode
 from telegram.ext import (
     Application, CallbackQueryHandler, ChatMemberHandler, CommandHandler,
@@ -983,7 +983,33 @@ async def media_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def post_init(application: Application) -> None:
-    await refresh_admins(); application.job_queue.run_repeating(automation_tick, interval=60, first=10, name="rust133-automation"); LOG.info("Bot iniciado con admins %s y grupo %s", sorted(admins), GROUP_ID)
+    await refresh_admins()
+    public_commands = [
+        BotCommand("start", "Iniciar el bot"), BotCommand("help", "Ver ayuda y comandos"), BotCommand("reglas", "Ver reglas de GAMAER CITY"),
+        BotCommand("servidor", "Ver la IP del servidor"), BotCommand("enlaces", "Ver enlaces oficiales"), BotCommand("devblog", "Ver último devblog"),
+        BotCommand("wipe", "Ver próximo wipe"), BotCommand("wipes", "Ver calendario de wipes"), BotCommand("soporte", "Abrir ticket"),
+        BotCommand("apelar", "Apelar una sanción"), BotCommand("reportar", "Reportar un usuario"), BotCommand("eventos", "Ver eventos"),
+        BotCommand("sorteos", "Ver sorteos"), BotCommand("encuestas", "Ver encuestas activas"), BotCommand("cancelar", "Cancelar flujo actual"),
+    ]
+    admin_commands = public_commands + [
+        BotCommand("panel", "Abrir panel administrativo"), BotCommand("anuncio", "Crear anuncio"), BotCommand("pendientes", "Revisar enlaces pendientes"),
+        BotCommand("tickets", "Gestionar tickets"), BotCommand("responder", "Responder mensaje"), BotCommand("moderacion", "Activar o desactivar moderación"),
+        BotCommand("filtro", "Gestionar filtro de palabras"), BotCommand("auto", "Gestionar respuestas automáticas"), BotCommand("setreglas", "Cambiar reglas"),
+        BotCommand("setservidor", "Cambiar IP del servidor"), BotCommand("setenlaces", "Configurar enlaces oficiales"), BotCommand("setwipe", "Configurar wipe"),
+        BotCommand("mantenimiento", "Activar modo mantenimiento"), BotCommand("fijar", "Fijar mensaje oficial"), BotCommand("rol", "Asignar rol"),
+        BotCommand("evento", "Crear o cancelar evento"), BotCommand("sorteo", "Crear o cerrar sorteo"), BotCommand("encuesta", "Crear encuesta"),
+        BotCommand("cerrar_encuesta", "Cerrar encuesta"), BotCommand("bienvenida", "Configurar bienvenida"), BotCommand("setbienvenida", "Cambiar bienvenida"),
+        BotCommand("addadmin", "Añadir administrador"), BotCommand("deladmin", "Eliminar administrador"), BotCommand("listadmins", "Listar administradores"),
+        BotCommand("ban", "Banear usuario"), BotCommand("kick", "Expulsar usuario"), BotCommand("mute", "Silenciar usuario"),
+        BotCommand("unmute", "Quitar silencio"), BotCommand("warn", "Advertir usuario"), BotCommand("claimadmin", "Reclamar acceso inicial"),
+    ]
+    await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllPrivateChats())
+    await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllGroupChats())
+    for admin_id in sorted(admins | ({BOT_OWNER_ID} if BOT_OWNER_ID else set())):
+        await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))
+    await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    application.job_queue.run_repeating(automation_tick, interval=60, first=10, name="rust133-automation")
+    LOG.info("Bot iniciado con admins %s y grupo %s", sorted(admins), GROUP_ID)
 
 
 def build_app() -> Application:
