@@ -65,7 +65,7 @@ class JsonStore:
             "warns.json": {}, "responder_sessions.json": {}, "tickets.json": {},
             "tickets_cerrados.json": {}, "welcome.json": {"enabled": False, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
             "wipe_config.json": {"manual": None, "reminders": []}, "encuestas.json": {},
-            "server.json": {"name": "Rust 133 Dev Blog", "ip": "", "port": 28015, "connect": ""},
+            "server.json": {"name": "Rust 133 Dev Blog", "ip": ""},
             "rules.txt": "📜 <b>Reglas de Rust 133 Dev Blog</b>\n\n1. Respeta a la comunidad.\n2. No spam, estafas ni phishing.\n3. No enlaces a otros servidores sin autorización.\n4. No contenido ilegal o datos personales.\n5. La moderación puede borrar mensajes y sancionar cuentas.",
             "settings.json": {"moderation": True, "word_filter": True, "bad_words": []},
         }
@@ -253,23 +253,21 @@ async def server_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not server.get("ip"):
         await update.effective_message.reply_text("ℹ️ La IP del servidor todavía no ha sido configurada por el equipo.")
         return
-    connect = server.get("connect") or f"client.connect {server['ip']}:{server.get('port', 28015)}"
     await update.effective_message.reply_text(
         f"🎮 <b>{esc(server.get('name', 'Servidor Rust'))}</b>\n"
-        f"🌐 IP: <code>{esc(server['ip'])}:{esc(server.get('port', 28015))}</code>\n"
-        f"📋 Conexión: <code>{esc(connect)}</code>", parse_mode=ParseMode.HTML)
+        f"🌐 IP del servidor: <code>{esc(server['ip'])}</code>", parse_mode=ParseMode.HTML)
 
 
 async def setserver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
-    if len(context.args) < 2:
-        await update.effective_message.reply_text("Usa /setservidor IP PUERTO [nombre] [comando_connect]")
+    if not context.args:
+        await update.effective_message.reply_text("Usa /setservidor IP [nombre del servidor]")
         return
-    ip, raw_port = context.args[0], context.args[1]
-    if not re.fullmatch(r"[A-Za-z0-9_.:-]+", ip) or not raw_port.isdigit() or not 1 <= int(raw_port) <= 65535:
-        await update.effective_message.reply_text("IP o puerto inválido."); return
+    ip = context.args[0]
+    if not re.fullmatch(r"[A-Za-z0-9_.:-]+", ip):
+        await update.effective_message.reply_text("IP inválida."); return
     server = await store.load("server.json")
-    server.update({"ip": ip, "port": int(raw_port), "name": " ".join(context.args[2:]) or server.get("name", "Servidor Rust")})
+    server.update({"ip": ip, "name": " ".join(context.args[1:]) or server.get("name", "Servidor Rust")})
     await store.save("server.json", server)
     await update.effective_message.reply_text("✅ Datos del servidor guardados.")
 
