@@ -197,7 +197,34 @@ async def moderate_words(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     key = f"{GROUP_ID}:{message.from_user.id}"
     warns[key] = int(warns.get(key, 0)) + 1
     await store.save("warns.json", warns)
-    action = settings.get("word_actions", {}).get(matched, "warn")
+    action = settings.get("word_actions", {}).get(matched, "escalate")
+    if action == "escalate":
+        if warns[key] == 1:
+            escalation = "silenciado 5 minutos y advertido"
+            minutes = 5
+        elif warns[key] == 2:
+            escalation = "silenciado 20 minutos y advertido"
+            minutes = 20
+        else:
+            escalation = "expulsado permanentemente y baneado"
+            minutes = 0
+        try:
+            if warns[key] >= 3:
+                await context.bot.ban_chat_member(GROUP_ID, message.from_user.id)
+            else:
+                from telegram import ChatPermissions
+                await context.bot.restrict_chat_member(
+                    GROUP_ID, message.from_user.id,
+                    ChatPermissions(can_send_messages=False),
+                    until_date=datetime.now(timezone.utc) + timedelta(minutes=minutes),
+                )
+        except Exception:
+            LOG.warning("No se pudo aplicar escalada por palabra", exc_info=True)
+        try:
+            await context.bot.send_message(GROUP_ID, f"⚠️ {mention(message.from_user)}: {escalation} por una infracción de palabras filtradas.", parse_mode=ParseMode.HTML)
+        except Exception:
+            pass
+        return True
     if action == "mute":
         try:
             from telegram import ChatPermissions
@@ -315,15 +342,15 @@ async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not context.args:
         actions = settings.get("word_actions", {})
         words = settings.get("bad_words", [])
-        display = ", ".join(f"{word} ({actions.get(word, 'warn')})" for word in words) or "ninguna"
+        display = ", ".join(f"{word} ({actions.get(word, 'escalate')})" for word in words) or "ninguna"
         await update.effective_message.reply_text(f"Filtro: {'activo' if settings.get('word_filter', True) else 'inactivo'}\nPalabras: {display}")
         return
     action, values = context.args[0].lower(), context.args[1:]
     if action in {"on", "off"}:
         settings["word_filter"] = action == "on"
     elif action == "add" and len(values) >= 1:
-        chosen_action = values[-1].lower() if values[-1].lower() in {"warn", "mute", "kick", "ban"} else "warn"
-        word_values = values[:-1] if chosen_action != "warn" else values
+        chosen_action = values[-1].lower() if values[-1].lower() in {"warn", "mute", "kick", "ban", "escalate"} else "escalate"
+        word_values = values[:-1] if values[-1].lower() in {"warn", "mute", "kick", "ban", "escalate"} else values
         if not word_values:
             await update.effective_message.reply_text("Indica una palabra antes de la acción."); return
         settings["bad_words"] = sorted(set(settings.get("bad_words", []) + [x.casefold() for x in word_values]))
@@ -334,7 +361,7 @@ async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     elif action == "list":
         await update.effective_message.reply_text("Palabras filtradas: " + (", ".join(settings.get("bad_words", [])) or "ninguna")); return
     else:
-        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra [warn|mute|kick|ban], /filtro remove palabra o /filtro list"); return
+        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra [escalate|warn|mute|kick|ban], /filtro remove palabra o /filtro list"); return
     await store.save("settings.json", settings); await update.effective_message.reply_text("✅ Filtro actualizado.")
 
 

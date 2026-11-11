@@ -10,7 +10,8 @@ Bot asíncrono basado en `python-telegram-bot` v20+ para administrar el grupo y 
 - Moderación configurable con `/moderacion on|off`.
 - `/ban`, `/kick`, `/mute`, `/unmute` y `/warn`.
 - Filtro de palabras: `/filtro on|off`, `/filtro add palabra`, `/filtro remove palabra`, `/filtro list`.
-- El filtro elimina el mensaje y usa `warn` por defecto; las acciones `mute`, `kick` o `ban` solo se ejecutan si tú las configuras explícitamente para una palabra.
+- Las palabras filtradas usan `escalate` por defecto: primera infracción, mute de 5 minutos y advertencia; segunda, mute de 20 minutos y advertencia; tercera, expulsión permanente y ban.
+- También puedes elegir `warn`, `mute`, `kick` o `ban` explícitamente para una palabra.
 - Respuestas automáticas configurables: `/auto on|off`, `/auto list`, `/auto add palabra respuesta`, `/auto remove palabra`.
 - `/servidor` muestra únicamente la IP configurada del servidor.
 - Tickets privados con `/soporte` y `/tickets`.
@@ -45,17 +46,17 @@ Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos
 
 Usuarios: `/help`, `/reglas`, `/devblog`, `/servidor`, `/wipe`, `/wipe recordatorio`, `/soporte`.
 
-Administradores: `/addadmin ID`, `/deladmin ID`, `/listadmins`, `/anuncio`, `/pendientes`, `/moderacion on|off`, `/setservidor IP Nombre`, `/filtro on|off`, `/filtro add palabra [warn|mute|kick|ban]`, `/filtro remove palabra`, `/filtro list`, `/auto on|off`, `/auto add palabra respuesta`, `/auto remove palabra`, `/ban ID`, `/kick ID`, `/mute ID MIN`, `/unmute ID`, `/warn ID`, `/tickets`, `/bienvenida on|off`, `/setbienvenida texto`, `/setreglas texto`, `/setwipe DD/MM/YYYY HH:MM`, `/encuesta Título | Opción 1 | Opción 2 | duracion=30m`.
+Administradores: `/addadmin ID`, `/deladmin ID`, `/listadmins`, `/anuncio`, `/pendientes`, `/moderacion on|off`, `/setservidor IP Nombre`, `/filtro on|off`, `/filtro add palabra [escalate|warn|mute|kick|ban]`, `/filtro remove palabra`, `/filtro list`, `/auto on|off`, `/auto add palabra respuesta`, `/auto remove palabra`, `/ban ID`, `/kick ID`, `/mute ID MIN`, `/unmute ID`, `/warn ID`, `/tickets`, `/bienvenida on|off`, `/setbienvenida texto`, `/setreglas texto`, `/setwipe DD/MM/YYYY HH:MM`, `/encuesta Título | Opción 1 | Opción 2 | duracion=30m`.
 
 Ejemplos de acciones manualmente configuradas:
 
 ```text
 /filtro add phishing ban
 /filtro add spam mute
-/filtro add palabra_prohibida warn
+/filtro add palabra_prohibida escalate
 ```
 
-Si no indicas una acción, se usa `warn`. Por tanto, ninguna palabra nueva puede banear por accidente: el baneo automático solo existe después de que el administrador escriba explícitamente `ban`.
+Si no indicas una acción, se usa `escalate`. El baneo ocurre solamente después de la tercera infracción de una palabra configurada, siguiendo la escalada definida; una palabra nueva nunca produce un ban en la primera detección.
 
 Ejemplo de configuración del servidor:
 
