@@ -10,6 +10,7 @@ import html
 import json
 import logging
 import os
+import random
 import re
 import uuid
 from collections import deque
@@ -69,6 +70,7 @@ class JsonStore:
             "server.json": {"name": "GAMAER CITY", "ip": ""},
             "roles.json": {}, "verified.json": {}, "moderation_logs.json": [],
             "appeals.json": {}, "reports.json": {}, "events.json": {}, "giveaways.json": {},
+            "moderation_confirmations.json": {},
             "official_links.json": {"discord": "", "web": "", "channel": "", "donaciones": ""},
             "auto_replies.json": {"enabled": True, "rules": {
                 "hola": "👋 ¡Hola! Bienvenido a GAMAER CITY. Usa /help para ver los comandos.",
@@ -139,6 +141,16 @@ async def audit(action: str, actor_id: int | None = None, target_id: int | None 
     logs = await store.load("moderation_logs.json")
     logs.append({"action": action, "actor_id": actor_id, "target_id": target_id, "details": details[:1000], "timestamp": now()})
     await store.save("moderation_logs.json", logs[-5000:])
+
+
+async def refresh_pinned_message(context: ContextTypes.DEFAULT_TYPE) -> None:
+    settings = await store.load("settings.json")
+    message_id = settings.get("pinned_message_id")
+    if not message_id: return
+    server = await store.load("server.json")
+    text = f"📌 <b>{esc(GROUP_NAME)}</b>\n\n📜 Usa /reglas para las normas.\n🎮 IP: <code>{esc(server.get('ip', 'No configurada'))}</code>\n📰 /devblog · 🧨 /wipe · 🔗 /enlaces"
+    try: await context.bot.edit_message_text(GROUP_ID, message_id, text, parse_mode=ParseMode.HTML)
+    except Exception: LOG.info("El mensaje fijado no se puede editar como texto")
 
 
 async def role_of(user_id: int | None) -> str:
@@ -304,7 +316,7 @@ async def setrules_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not await private_admin(update): return
     text = update.effective_message.text.partition(" ")[2].strip()
     if not text: await update.effective_message.reply_text("Usa /setreglas texto"); return
-    await store.save("rules.txt", esc(text)); await update.effective_message.reply_text("✅ Reglas guardadas.")
+    await store.save("rules.txt", esc(text)); await refresh_pinned_message(context); await update.effective_message.reply_text("✅ Reglas guardadas.")
 
 
 async def announcement_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -356,7 +368,7 @@ async def setserver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.effective_message.reply_text("IP inválida."); return
     server = await store.load("server.json")
     server.update({"ip": ip, "name": " ".join(context.args[1:]) or server.get("name", GROUP_NAME)})
-    await store.save("server.json", server)
+    await store.save("server.json", server); await refresh_pinned_message(context)
     await update.effective_message.reply_text("✅ Datos del servidor guardados.")
 
 
@@ -416,6 +428,10 @@ async def moderate_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not await private_admin(update): return
     if not context.args or not context.args[0].lstrip("-").isdigit(): await update.effective_message.reply_text("Usa /ban ID [motivo]"); return
     target = int(context.args[0]); cmd = update.effective_message.text.split()[0].split("@")[0]; reason = " ".join(context.args[1:]) or "Sin motivo"
+    if cmd in {"/ban", "/kick"}:
+        confirmations = await store.load("moderation_confirmations.json"); confirmation_id = uid(); confirmations[confirmation_id] = {"action": cmd[1:], "target": target, "reason": reason, "admin_id": update.effective_user.id, "created_at": now()}; await store.save("moderation_confirmations.json", confirmations)
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Confirmar", callback_data=f"confirmmod:{confirmation_id}"), InlineKeyboardButton("❌ Cancelar", callback_data=f"cancelmod:{confirmation_id}")]])
+        await update.effective_message.reply_text(f"⚠️ Confirma {cmd[1:]} a <code>{target}</code>?\nMotivo: {esc(reason)}", parse_mode=ParseMode.HTML, reply_markup=keyboard); return
     try:
         if cmd == "/ban": await context.bot.ban_chat_member(GROUP_ID, target)
         elif cmd == "/kick": await context.bot.ban_chat_member(GROUP_ID, target); await context.bot.unban_chat_member(GROUP_ID, target)
@@ -432,6 +448,20 @@ async def moderate_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.effective_message.reply_text(f"⚠️ Advertencia {warns[key]}/3 registrada."); return
         await update.effective_message.reply_text(f"✅ {cmd[1:]} aplicado a <code>{target}</code>. Motivo: {esc(reason)}", parse_mode=ParseMode.HTML)
     except Exception as exc: await update.effective_message.reply_text(f"❌ Error de Telegram: {esc(exc)}")
+
+
+async def moderation_confirmation_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    call = update.callback_query; await call.answer()
+    if not await is_admin(call.from_user.id): return
+    action, confirmation_id = call.data.split(":", 1); confirmations = await store.load("moderation_confirmations.json"); item = confirmations.pop(confirmation_id, None); await store.save("moderation_confirmations.json", confirmations)
+    if not item: await call.edit_message_text("ℹ️ Esta acción ya fue procesada."); return
+    if action == "cancelmod": await call.edit_message_text("❌ Acción cancelada."); return
+    try:
+        await context.bot.ban_chat_member(GROUP_ID, item["target"])
+        if item["action"] == "kick": await context.bot.unban_chat_member(GROUP_ID, item["target"])
+        await audit(item["action"], call.from_user.id, item["target"], item["reason"])
+        await call.edit_message_text(f"✅ {item['action']} confirmado por {mention(call.from_user)}", parse_mode=ParseMode.HTML)
+    except Exception as exc: await call.edit_message_text(f"❌ Telegram rechazó la acción: {esc(exc)}")
 
 
 async def process_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -570,6 +600,15 @@ async def automation_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
                     try: await context.bot.send_message(admin, f"⏰ El ticket #{ticket['ticket_id']} lleva más de 24 horas abierto.")
                     except Exception: pass
         await store.save("tickets.json", tickets)
+
+        events = await store.load("events.json"); event_changed = False; current = datetime.now(timezone.utc)
+        for event in events.values():
+            if event.get("status") != "active" or event.get("reminder_sent") or not event.get("starts_at"): continue
+            starts = datetime.fromisoformat(event["starts_at"])
+            if starts - timedelta(hours=1) <= current < starts:
+                await context.bot.send_message(GROUP_ID, f"⏰ Recordatorio: el evento comienza en menos de una hora.\n{esc(event['text'])}")
+                event["reminder_sent"] = True; event_changed = True
+        if event_changed: await store.save("events.json", events)
     except Exception:
         LOG.exception("automation_tick")
 
@@ -634,7 +673,8 @@ async def panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         server = await store.load("server.json"); text = f"🎮 {esc(server.get('name', GROUP_NAME))}\nIP: <code>{esc(server.get('ip', 'no configurada'))}</code>"
     elif section == "links": text = "Usa /pendientes para revisar enlaces."
     elif section == "tickets": text = "Usa /tickets para ver tickets activos."
-    else: text = f"Mantenimiento: {'activo' if (await store.load('settings.json')).get('maintenance') else 'inactivo'}"
+    else:
+        settings = await store.load("settings.json"); settings["maintenance"] = not settings.get("maintenance", False); await store.save("settings.json", settings); await audit("maintenance_panel", call.from_user.id, details=str(settings["maintenance"])); text = f"✅ Mantenimiento {'activado' if settings['maintenance'] else 'desactivado'}"
     await call.edit_message_text(text, parse_mode=ParseMode.HTML)
 
 
@@ -725,8 +765,9 @@ async def appeal_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not text:
         admin_states[update.effective_user.id] = {"flow": "appeal"}; await update.effective_message.reply_text("Explica por qué consideras injusta la sanción."); return
     appeals = await store.load("appeals.json"); appeal_id = uid().upper(); appeals[appeal_id] = {"id": appeal_id, "user_id": update.effective_user.id, "text": text, "status": "open", "timestamp": now()}; await store.save("appeals.json", appeals)
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Retirar sanción", callback_data=f"appeal:accept:{appeal_id}"), InlineKeyboardButton("⏳ Mantener", callback_data=f"appeal:keep:{appeal_id}")], [InlineKeyboardButton("❌ Rechazar", callback_data=f"appeal:reject:{appeal_id}")]])
     for admin in admins:
-        try: await context.bot.send_message(admin, f"⚖️ <b>Apelación #{appeal_id}</b>\nUsuario: {mention(update.effective_user)}\n\n{esc(text)}", parse_mode=ParseMode.HTML)
+        try: await context.bot.send_message(admin, f"⚖️ <b>Apelación #{appeal_id}</b>\nUsuario: {mention(update.effective_user)}\n\n{esc(text)}", parse_mode=ParseMode.HTML, reply_markup=keyboard)
         except Exception: pass
     await update.effective_message.reply_text("✅ Apelación enviada al equipo.")
 
@@ -744,6 +785,23 @@ async def report_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await update.effective_message.reply_text("✅ Reporte enviado a los administradores.")
 
 
+async def appeal_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    call = update.callback_query; await call.answer()
+    if not await is_admin(call.from_user.id): return
+    _, action, appeal_id = call.data.split(":", 2); appeals = await store.load("appeals.json"); appeal = appeals.get(appeal_id)
+    if not appeal or appeal.get("status") != "open": await call.edit_message_text("ℹ️ Apelación ya resuelta."); return
+    appeal["status"] = action; appeal["reviewed_by"] = call.from_user.id; appeal["reviewed_at"] = now(); appeals[appeal_id] = appeal; await store.save("appeals.json", appeals); await audit("appeal_" + action, call.from_user.id, appeal["user_id"], appeal_id)
+    if action == "accept":
+        try: await context.bot.unban_chat_member(GROUP_ID, appeal["user_id"], only_if_banned=True)
+        except Exception: pass
+        message = "✅ Apelación aceptada. Tu sanción fue retirada."
+    elif action == "keep": message = "⏳ La sanción se mantiene tras revisión."
+    else: message = "❌ Apelación rechazada por el equipo."
+    try: await context.bot.send_message(appeal["user_id"], message)
+    except Exception: pass
+    await call.edit_message_text(f"Apelación #{appeal_id}: {action} por {mention(call.from_user)}", parse_mode=ParseMode.HTML)
+
+
 async def roles_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update): return
     if len(context.args) < 2 or not context.args[0].lstrip("-").isdigit() or context.args[1] not in {"admin", "moderator", "support", "announcer", "user"}:
@@ -757,7 +815,12 @@ async def events_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         if context.args[0].lower() == "crear":
             text = " ".join(context.args[1:]).strip()
             if not text: await update.effective_message.reply_text("Usa /evento crear Título | fecha | detalles"); return
-            event_id = uid().upper(); events[event_id] = {"id": event_id, "text": text, "created_at": now(), "status": "active"}; await store.save("events.json", events); await context.bot.send_message(GROUP_ID, f"📅 <b>Evento #{event_id}</b>\n\n{esc(text)}", parse_mode=ParseMode.HTML); await update.effective_message.reply_text("✅ Evento publicado."); return
+            event_id = uid().upper(); event = {"id": event_id, "text": text, "created_at": now(), "status": "active", "reminder_sent": False}
+            parts = [part.strip() for part in text.split("|")]
+            if len(parts) > 1:
+                try: event["starts_at"] = datetime.fromisoformat(parts[1]).replace(tzinfo=timezone.utc).isoformat()
+                except ValueError: pass
+            events[event_id] = event; await store.save("events.json", events); await context.bot.send_message(GROUP_ID, f"📅 <b>Evento #{event_id}</b>\n\n{esc(text)}", parse_mode=ParseMode.HTML); await update.effective_message.reply_text("✅ Evento publicado."); return
         if context.args[0].lower() == "cancelar" and len(context.args) > 1:
             if context.args[1] in events: events[context.args[1]]["status"] = "cancelled"; await store.save("events.json", events)
             await update.effective_message.reply_text("✅ Evento cancelado."); return
@@ -767,6 +830,13 @@ async def events_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def giveaway_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     giveaways = await store.load("giveaways.json")
+    if await private_admin(update) and context.args and context.args[0].lower() == "cerrar" and len(context.args) > 1:
+        giveaway = giveaways.get(context.args[1])
+        if not giveaway: await update.effective_message.reply_text("Sorteo no encontrado."); return
+        giveaway["status"] = "closed"; winner = random.choice(giveaway["participants"]) if giveaway["participants"] else None; giveaway["winner"] = winner; giveaways[context.args[1]] = giveaway; await store.save("giveaways.json", giveaways)
+        if winner: await context.bot.send_message(GROUP_ID, f"🎉 Sorteo #{context.args[1]} cerrado. Ganador: <a href=\"tg://user?id={winner}\">participante seleccionado</a>\nPremio: {esc(giveaway['prize'])}", parse_mode=ParseMode.HTML)
+        else: await context.bot.send_message(GROUP_ID, f"🎁 Sorteo #{context.args[1]} cerrado sin participantes.")
+        await update.effective_message.reply_text("✅ Sorteo cerrado."); return
     if await private_admin(update) and context.args and context.args[0].lower() == "crear":
         prize = " ".join(context.args[1:]).strip()
         if not prize: await update.effective_message.reply_text("Usa /sorteo crear Premio"); return
@@ -886,7 +956,7 @@ def build_app() -> Application:
     app = Application.builder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
     app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
-    app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
+    app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))
     app.add_error_handler(error_handler)
     return app

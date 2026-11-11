@@ -97,3 +97,9 @@ python main.py
 - **Recuperación:** los errores se registran y se notifica a los administradores sin detener el polling.
 
 El filtrado y los enlaces siguen requiriendo configuración explícita. Las sanciones graves deben revisarse conforme a las reglas de GAMAER CITY.
+
+## Funciones finales
+
+Las apelaciones ahora incluyen botones para **retirar sanción**, **mantener** o **rechazar**. Los comandos `/ban` y `/kick` requieren confirmar la acción mediante botones antes de ejecutarse. Los sorteos se cierran con `/sorteo cerrar ID` y el bot elige un ganador aleatorio entre los participantes únicos. Los eventos aceptan fecha ISO en `/evento crear Título | 2026-11-20T19:00:00 | detalles` y envían un recordatorio una hora antes.
+
+El botón de mantenimiento del `/panel` ahora cambia el modo de mantenimiento. El comando `/fijar`, usado respondiendo a un mensaje del grupo, guarda el mensaje oficial; después `/setservidor` y `/setreglas` intentan actualizarlo automáticamente con la IP, reglas y comandos útiles. Los errores no controlados se registran y notifican a los administradores sin detener el proceso de polling.
