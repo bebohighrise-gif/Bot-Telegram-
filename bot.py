@@ -48,6 +48,7 @@ LOG = logging.getLogger("rust133")
 TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
 GROUP_ID = int(os.getenv("GROUP_ID", "0") or 0)
 GROUP_NAME = os.getenv("GROUP_NAME", "GAMAER CITY").strip() or "GAMAER CITY"
+BOT_OWNER_ID = int(os.getenv("BOT_OWNER_ID", "0") or 0)
 SEED_ADMINS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().lstrip("-").isdigit()}
 DATA_DIR = Path(os.getenv("DATA_DIR", "."))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,7 +142,7 @@ def valid_token() -> bool:
 
 
 async def is_admin(user_id: int | None) -> bool:
-    return bool(user_id and user_id in admins)
+    return bool(user_id and (user_id == BOT_OWNER_ID or user_id in admins))
 
 
 async def refresh_admins() -> None:
@@ -168,7 +169,7 @@ async def refresh_pinned_message(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def role_of(user_id: int | None) -> str:
-    if user_id in SEED_ADMINS: return "owner"
+    if user_id == BOT_OWNER_ID or user_id in SEED_ADMINS: return "owner"
     roles = await store.load("roles.json")
     return roles.get(str(user_id), "admin" if await is_admin(user_id) else "user")
 
@@ -311,6 +312,9 @@ async def claim_admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user = update.effective_user
     if not user or not update.effective_chat or update.effective_chat.type != "private":
         await update.effective_message.reply_text("Usa /claimadmin en el chat privado del bot."); return
+    if BOT_OWNER_ID and user.id == BOT_OWNER_ID:
+        admins.add(user.id); await store.save("admins.json", sorted(admins)); await audit("claim_bot_owner", user.id)
+        await update.effective_message.reply_text("✅ Propietario del bot reconocido. Ya puedes administrar GAMAER CITY desde este chat privado."); return
     if admins:
         await update.effective_message.reply_text("ℹ️ Ya existe al menos un administrador. Solicita que te añadan con /addadmin."); return
     try:
