@@ -75,7 +75,7 @@ class JsonStore:
                 "ayuda": "ℹ️ Usa /help para ver la ayuda de GAMAER CITY."
             }},
             "rules.txt": "📜 <b>Reglas de Rust 133 Dev Blog</b>\n\n1. Respeta a la comunidad.\n2. No spam, estafas ni phishing.\n3. No enlaces a otros servidores sin autorización.\n4. No contenido ilegal o datos personales.\n5. La moderación puede borrar mensajes y sancionar cuentas.",
-            "settings.json": {"moderation": True, "word_filter": True, "bad_words": []},
+            "settings.json": {"moderation": True, "word_filter": True, "bad_words": [], "word_actions": {}},
         }
 
     def path(self, name: str) -> Path:
@@ -197,10 +197,22 @@ async def moderate_words(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     key = f"{GROUP_ID}:{message.from_user.id}"
     warns[key] = int(warns.get(key, 0)) + 1
     await store.save("warns.json", warns)
-    # Nunca se banea automáticamente por una coincidencia: puede ser un falso positivo.
-    # La advertencia invita a pedir revisión y el administrador decide cualquier sanción.
+    action = settings.get("word_actions", {}).get(matched, "warn")
+    if action == "mute":
+        try:
+            from telegram import ChatPermissions
+            await context.bot.restrict_chat_member(GROUP_ID, message.from_user.id, ChatPermissions(can_send_messages=False), until_date=datetime.now(timezone.utc) + timedelta(minutes=60))
+        except Exception: LOG.warning("No se pudo silenciar por palabra configurada", exc_info=True)
+    elif action in {"kick", "ban"}:
+        try:
+            await context.bot.ban_chat_member(GROUP_ID, message.from_user.id)
+            if action == "kick": await context.bot.unban_chat_member(GROUP_ID, message.from_user.id)
+        except Exception: LOG.warning("No se pudo aplicar %s por palabra configurada", action, exc_info=True)
+    # 'warn' es el valor seguro. Kick/ban/mute solo ocurren si el admin
+    # configuró explícitamente esa acción para esa palabra.
     try:
-        await context.bot.send_message(GROUP_ID, "ℹ️ Si crees que fue un falso positivo, contacta con un administrador mediante /soporte.")
+        label = {"warn": "advertencia", "mute": "silenciado 60 minutos", "kick": "expulsado", "ban": "baneado"}.get(action, "revisado")
+        await context.bot.send_message(GROUP_ID, f"ℹ️ Moderación automática configurada: {label}. Si crees que fue un falso positivo, contacta con un administrador mediante /soporte.")
     except Exception:
         pass
     return True
@@ -301,19 +313,28 @@ async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not await private_admin(update): return
     settings = await store.load("settings.json")
     if not context.args:
-        await update.effective_message.reply_text(f"Filtro: {'activo' if settings.get('word_filter', True) else 'inactivo'}\nPalabras: {', '.join(settings.get('bad_words', [])) or 'ninguna'}")
+        actions = settings.get("word_actions", {})
+        words = settings.get("bad_words", [])
+        display = ", ".join(f"{word} ({actions.get(word, 'warn')})" for word in words) or "ninguna"
+        await update.effective_message.reply_text(f"Filtro: {'activo' if settings.get('word_filter', True) else 'inactivo'}\nPalabras: {display}")
         return
     action, values = context.args[0].lower(), context.args[1:]
     if action in {"on", "off"}:
         settings["word_filter"] = action == "on"
-    elif action == "add" and values:
-        settings["bad_words"] = sorted(set(settings.get("bad_words", []) + [x.casefold() for x in values]))
+    elif action == "add" and len(values) >= 1:
+        chosen_action = values[-1].lower() if values[-1].lower() in {"warn", "mute", "kick", "ban"} else "warn"
+        word_values = values[:-1] if chosen_action != "warn" else values
+        if not word_values:
+            await update.effective_message.reply_text("Indica una palabra antes de la acción."); return
+        settings["bad_words"] = sorted(set(settings.get("bad_words", []) + [x.casefold() for x in word_values]))
+        settings.setdefault("word_actions", {}).update({x.casefold(): chosen_action for x in word_values})
     elif action == "remove" and values:
         settings["bad_words"] = [x for x in settings.get("bad_words", []) if x.casefold() not in {v.casefold() for v in values}]
+        for value in values: settings.setdefault("word_actions", {}).pop(value.casefold(), None)
     elif action == "list":
         await update.effective_message.reply_text("Palabras filtradas: " + (", ".join(settings.get("bad_words", [])) or "ninguna")); return
     else:
-        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra, /filtro remove palabra o /filtro list"); return
+        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra [warn|mute|kick|ban], /filtro remove palabra o /filtro list"); return
     await store.save("settings.json", settings); await update.effective_message.reply_text("✅ Filtro actualizado.")
 
 
