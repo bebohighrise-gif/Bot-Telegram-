@@ -187,7 +187,7 @@ async def private_admin(update: Update) -> bool:
     user = update.effective_user
     if not update.effective_chat or update.effective_chat.type != "private" or not await is_admin(user.id if user else None):
         if update.effective_chat and update.effective_chat.type == "private":
-            await update.effective_message.reply_text("🔒 Solo los administradores autorizados pueden usar este comando.")
+            await update.effective_message.reply_text("🔒 Esta función está reservada al equipo de GAMAER CITY. Puedes usar /help para ver las funciones públicas.")
         return False
     return True
 
@@ -912,14 +912,14 @@ async def events_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def giveaway_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     giveaways = await store.load("giveaways.json")
-    if await private_admin(update) and context.args and context.args[0].lower() == "cerrar" and len(context.args) > 1:
+    if context.args and await private_admin(update) and context.args[0].lower() == "cerrar" and len(context.args) > 1:
         giveaway = giveaways.get(context.args[1])
         if not giveaway: await update.effective_message.reply_text("Sorteo no encontrado."); return
         giveaway["status"] = "closed"; winner = random.choice(giveaway["participants"]) if giveaway["participants"] else None; giveaway["winner"] = winner; giveaways[context.args[1]] = giveaway; await store.save("giveaways.json", giveaways)
         if winner: await context.bot.send_message(GROUP_ID, f"🎉 Sorteo #{context.args[1]} cerrado. Ganador: <a href=\"tg://user?id={winner}\">participante seleccionado</a>\nPremio: {esc(giveaway['prize'])}", parse_mode=ParseMode.HTML)
         else: await context.bot.send_message(GROUP_ID, f"🎁 Sorteo #{context.args[1]} cerrado sin participantes.")
         await update.effective_message.reply_text("✅ Sorteo cerrado."); return
-    if await private_admin(update) and context.args and context.args[0].lower() == "crear":
+    if context.args and await private_admin(update) and context.args[0].lower() == "crear":
         prize = " ".join(context.args[1:]).strip()
         if not prize: await update.effective_message.reply_text("Usa /sorteo crear Premio"); return
         giveaway_id = uid().upper(); giveaways[giveaway_id] = {"id": giveaway_id, "prize": prize, "participants": [], "status": "active", "created_at": now()}; await store.save("giveaways.json", giveaways)
