@@ -196,6 +196,15 @@ def group_message(update: Update) -> bool:
     return bool(update.effective_chat and update.effective_chat.id == GROUP_ID)
 
 
+def public_buttons() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📜 Reglas", callback_data="nav:rules"), InlineKeyboardButton("🎮 Servidor", callback_data="nav:server")],
+        [InlineKeyboardButton("🧨 Wipe", callback_data="nav:wipe"), InlineKeyboardButton("🔗 Enlaces", callback_data="nav:links")],
+        [InlineKeyboardButton("🎫 Soporte", callback_data="nav:support"), InlineKeyboardButton("📅 Eventos", callback_data="nav:events")],
+        [InlineKeyboardButton("🎁 Sorteos", callback_data="nav:giveaways"), InlineKeyboardButton("❓ Ayuda", callback_data="nav:help")],
+    ])
+
+
 def link_host(url: str) -> str:
     return re.sub(r"(?i)^https?://", "", url).split("/", 1)[0].split(":", 1)[0].lower().lstrip("www.")
 
@@ -214,6 +223,10 @@ async def automatic_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     text = message.text.casefold()
     for trigger, reply in config.get("rules", {}).items():
         if re.search(r"(?<!\w)" + re.escape(trigger.casefold()) + r"(?!\w)", text):
+            if trigger.casefold() == "ip" and not (await store.load("server.json")).get("ip"):
+                reply = "ℹ️ La IP de GAMAER CITY todavía no está configurada por el equipo."
+            if trigger.casefold() == "wipe" and not (await store.load("wipe_config.json")).get("manual"):
+                reply = "ℹ️ El próximo wipe todavía no está configurado por el equipo."
             try:
                 await message.reply_text(reply, parse_mode=ParseMode.HTML)
             except Exception:
@@ -303,12 +316,13 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [[KeyboardButton("/reglas"), KeyboardButton("/servidor"), KeyboardButton("/wipe")], [KeyboardButton("/soporte"), KeyboardButton("/enlaces"), KeyboardButton("/eventos")]]
     if await is_admin(update.effective_user.id):
         keyboard += [[KeyboardButton("/panel"), KeyboardButton("/anuncio"), KeyboardButton("/tickets")], [KeyboardButton("/filtro"), KeyboardButton("/auto"), KeyboardButton("/mantenimiento")], [KeyboardButton("/admin"), KeyboardButton("/mod"), KeyboardButton("/sorteo")]]
-    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True))
+    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
+    await update.effective_message.reply_text("Usa también el teclado inferior para acceder rápidamente a las funciones principales.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True))
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     extra = " Si eres el propietario del grupo y aún no hay admins, usa /claimadmin." if not admins else ""
-    await update.effective_message.reply_text("✅ Bot conectado. Usa los botones del teclado o /help para ver los comandos." + extra, parse_mode=ParseMode.HTML, reply_markup=ReplyKeyboardMarkup([[KeyboardButton("/help"), KeyboardButton("/panel" if await is_admin(update.effective_user.id) else "/reglas")], [KeyboardButton("/servidor"), KeyboardButton("/wipe"), KeyboardButton("/soporte")]], resize_keyboard=True, is_persistent=True))
+    await update.effective_message.reply_text("✅ <b>GAMAER CITY</b>\nBot conectado. Usa los botones o /help para ver todas las funciones." + extra, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
 async def claim_admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -347,7 +361,7 @@ async def admins_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def rules_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.effective_message.reply_text(await store.load("rules.txt"), parse_mode=ParseMode.HTML)
+    await update.effective_message.reply_text("📜 <b>Reglas de GAMAER CITY</b>\n\n" + await store.load("rules.txt"), parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
 async def setrules_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -389,11 +403,11 @@ async def moderation_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def server_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     server = await store.load("server.json")
     if not server.get("ip"):
-        await update.effective_message.reply_text("ℹ️ La IP del servidor todavía no ha sido configurada por el equipo.")
+        await update.effective_message.reply_text("ℹ️ La IP del servidor todavía no está configurada. El equipo debe establecerla antes de mostrarla.", reply_markup=public_buttons())
         return
     await update.effective_message.reply_text(
         f"🎮 <b>{esc(server.get('name', GROUP_NAME))}</b>\n"
-        f"🌐 IP del servidor: <code>{esc(server['ip'])}</code>", parse_mode=ParseMode.HTML)
+        f"🌐 IP del servidor: <code>{esc(server['ip'])}</code>", parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
 async def setserver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -575,26 +589,20 @@ async def devblog_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as exc: await update.effective_message.reply_text(f"❌ No se pudo consultar el RSS: {esc(exc)}")
 
 
-def next_wipe() -> datetime:
-    current = datetime.now(timezone.utc)
-    manual = None
-    # Manual date is read by wipe_cmd; default is next first Thursday at 19:00 UTC.
-    candidate = current.replace(hour=19, minute=0, second=0, microsecond=0)
-    while candidate <= current or candidate.weekday() != 3 or candidate.day > 7: candidate += timedelta(days=1)
-    return candidate
-
-
 async def wipe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     config = await store.load("wipe_config.json"); target = None
     if config.get("manual"):
         try: target = datetime.fromisoformat(config["manual"])
         except ValueError: pass
-    target = target or next_wipe(); remaining = target - datetime.now(timezone.utc)
     if context.args and context.args[0].lower() == "recordatorio":
+        if not target: await update.effective_message.reply_text("ℹ️ Todavía no hay un wipe configurado por el equipo."); return
         if update.effective_user.id not in config.setdefault("reminders", []): config["reminders"].append(update.effective_user.id); await store.save("wipe_config.json", config)
         await update.effective_message.reply_text("✅ Te avisaré una hora antes del wipe en este chat privado."); return
+    if not target:
+        await update.effective_message.reply_text("ℹ️ El próximo wipe todavía no está configurado. El equipo debe usar /setwipe DD/MM/YYYY HH:MM.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔄 Comprobar de nuevo", callback_data="nav:wipe")]])); return
+    remaining = target - datetime.now(timezone.utc)
     total = max(0, int(remaining.total_seconds())); days, rem = divmod(total, 86400); hours, rem = divmod(rem, 3600); minutes = rem // 60
-    await update.effective_message.reply_text(f"🧨 <b>Próximo wipe de Rust</b>\n📅 {target.strftime('%d/%m/%Y')}\n⏰ 19:00 UTC\n⏳ Faltan: {days} días, {hours} horas, {minutes} minutos", parse_mode=ParseMode.HTML)
+    await update.effective_message.reply_text(f"🧨 <b>Próximo wipe de Rust</b>\n📅 {target.strftime('%d/%m/%Y')}\n⏰ {target.strftime('%H:%M')} UTC\n⏳ Faltan: {days} días, {hours} horas, {minutes} minutos", parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
 async def setwipe_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -623,8 +631,8 @@ async def automation_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
         if config.get("manual"):
             try: target = datetime.fromisoformat(config["manual"])
             except ValueError: target = None
-        target = target or next_wipe(); reminder_key = target.isoformat()
-        if target - timedelta(hours=1) <= datetime.now(timezone.utc) < target and config.get("last_reminder") != reminder_key:
+        reminder_key = target.isoformat() if target else None
+        if target and target - timedelta(hours=1) <= datetime.now(timezone.utc) < target and config.get("last_reminder") != reminder_key:
             for user_id in config.get("reminders", []):
                 try: await context.bot.send_message(user_id, f"⏰ Recordatorio: el wipe de Rust es en menos de una hora ({target.strftime('%d/%m/%Y %H:%M')} UTC).")
                 except Exception: pass
@@ -718,6 +726,26 @@ async def panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     else:
         settings = await store.load("settings.json"); settings["maintenance"] = not settings.get("maintenance", False); await store.save("settings.json", settings); await audit("maintenance_panel", call.from_user.id, details=str(settings["maintenance"])); text = f"✅ Mantenimiento {'activado' if settings['maintenance'] else 'desactivado'}"
     await call.edit_message_text(text, parse_mode=ParseMode.HTML)
+
+
+async def public_nav_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    call = update.callback_query; await call.answer(); section = call.data.split(":", 1)[1]
+    if section == "rules": text = "📜 <b>Reglas de GAMAER CITY</b>\n\n" + await store.load("rules.txt")
+    elif section == "server":
+        server = await store.load("server.json")
+        text = f"ℹ️ La IP aún no está configurada por el equipo." if not server.get("ip") else f"🎮 <b>{esc(server.get('name', GROUP_NAME))}</b>\n🌐 IP: <code>{esc(server['ip'])}</code>"
+    elif section == "wipe":
+        config = await store.load("wipe_config.json")
+        text = "ℹ️ El wipe todavía no está configurado. El equipo debe usar /setwipe." if not config.get("manual") else "🧨 Consulta la fecha y el contador con /wipe."
+    elif section == "links":
+        links = await store.load("official_links.json"); text = "🔗 <b>Enlaces oficiales</b>\n" + "\n".join(f"• {esc(k.title())}: {esc(v)}" for k, v in links.items() if v) if any(links.values()) else "ℹ️ Todavía no hay enlaces oficiales configurados."
+    elif section == "support": text = "🎫 Para abrir un ticket, pulsa /soporte y escribe tu consulta."
+    elif section == "events":
+        events = await store.load("events.json"); active = [e for e in events.values() if e.get("status") == "active"]; text = "📅 Eventos activos:\n" + "\n".join(f"• #{e['id']} — {esc(e['text'])}" for e in active) if active else "📅 No hay eventos configurados."
+    elif section == "giveaways":
+        giveaways = await store.load("giveaways.json"); active = [g for g in giveaways.values() if g.get("status") == "active"]; text = "🎁 Sorteos activos:\n" + "\n".join(f"• #{g['id']} — {esc(g['prize'])}" for g in active) if active else "🎁 No hay sorteos configurados."
+    else: text = "🤖 Usa /help para ver todos los comandos disponibles."
+    await call.edit_message_text(text, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
 async def welcome_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1041,7 +1069,7 @@ def build_app() -> Application:
     app = Application.builder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler("claimadmin", claim_admin_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
     app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler(["admin", "mod", "support", "announcer"], role_alias_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
-    app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
+    app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(public_nav_callback, pattern=r"^nav:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))
     app.add_error_handler(error_handler)
     return app

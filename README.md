@@ -47,6 +47,8 @@ Al iniciar, el bot registra automáticamente los comandos públicos en grupos y 
 
 En el chat privado, `/start` y `/help` muestran un teclado con botones para las funciones frecuentes. El `/panel` incluye botones para reglas, servidor, tickets, enlaces, mantenimiento y asignación de Admin o Mod. También puedes usar los alias rápidos: `/admin USER_ID`, `/mod USER_ID`, `/support USER_ID` y `/announcer USER_ID`.
 
+Las respuestas públicas incluyen navegación con botones inline y emojis. El bot no inventa configuraciones: si la IP o el wipe no se han guardado, muestra “no configurado” y explica qué comando administrativo debe usarse. El contador del wipe usa exactamente la fecha y hora almacenadas en `/setwipe`.
+
 Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
 
 ## Comandos
