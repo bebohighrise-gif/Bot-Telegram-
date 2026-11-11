@@ -450,7 +450,8 @@ def callback_link_review(call: types.CallbackQuery) -> None:
         pass
 
 
-@bot.message_handler(content_types=["text", "photo", "video", "document", "audio", "animation", "voice"])
+@bot.message_handler(content_types=["text", "photo", "video", "document", "audio", "animation", "voice",
+                                    "sticker", "contact", "location", "venue", "poll"])
 def group_message(message: types.Message) -> None:
     if not is_group(message):
         if message.chat.type == "private" and is_admin(message.from_user.id) and message.content_type != "text":
