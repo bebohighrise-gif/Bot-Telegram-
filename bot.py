@@ -561,16 +561,20 @@ async def link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await call.edit_message_text(f"{result} por {mention(call.from_user)}", parse_mode=ParseMode.HTML)
 
 
-async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     message = update.effective_message
-    if not group_message(update) or not message.text or message.text.startswith("/") or await is_admin(message.from_user.id) or await process_link(update, context): return
-    if message.message_id in translation_locks: return
+    if not group_message(update) or not message.text or message.text.startswith("/") or await is_admin(message.from_user.id): return False
+    if await process_link(update, context): return True
+    if message.message_id in translation_locks: return False
     translation_locks.add(message.message_id)
     try:
         translated = await asyncio.to_thread(GoogleTranslator(source="auto", target="es").translate, message.text)
-        if translated and translated.casefold() != message.text.casefold(): await message.reply_text(f"🌐 <b>Traducción al español</b>\n{esc(translated)}", parse_mode=ParseMode.HTML)
+        if translated and translated.strip().casefold() != message.text.strip().casefold():
+            await message.reply_text(f"🌐 <b>Traducción al español</b>\n{esc(translated)}", parse_mode=ParseMode.HTML)
+            return True
     except Exception as exc: LOG.warning("Traducción no disponible: %s", exc)
     finally: translation_locks.discard(message.message_id)
+    return False
 
 
 async def media_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1019,8 +1023,8 @@ async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
     recent_messages.append(update.effective_message)
     if await moderate_words(update, context): return
-    if await automatic_reply(update, context): return
-    await translate_message(update, context)
+    if await translate_message(update, context): return
+    await automatic_reply(update, context)
 
 
 async def media_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

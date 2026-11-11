@@ -49,6 +49,8 @@ En el chat privado, `/start` y `/help` muestran un teclado con botones para las 
 
 Las respuestas públicas incluyen navegación con botones inline y emojis. El bot no inventa configuraciones: si la IP o el wipe no se han guardado, muestra “no configurado” y explica qué comando administrativo debe usarse. El contador del wipe usa exactamente la fecha y hora almacenadas en `/setwipe`.
 
+La traducción del grupo es automática: cuando un usuario no administrador escribe un mensaje en otro idioma, el bot responde al mensaje original con `🌐 Traducción al español`. Si el texto ya está en español, no responde para no generar ruido. Los enlaces se moderan antes de traducirse y los comandos no se traducen.
+
 Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
 
 ## Comandos
