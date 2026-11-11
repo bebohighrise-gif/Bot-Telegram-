@@ -12,6 +12,7 @@ import logging
 import os
 import random
 import re
+import urllib.parse
 import uuid
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import feedparser
+import aiohttp
 from deep_translator import GoogleTranslator
 from dotenv import load_dotenv
 from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, MenuButtonCommands, ReplyKeyboardMarkup, Update
@@ -80,7 +82,7 @@ class JsonStore:
         self.defaults = {
             "admins.json": [], "pending_links.json": {}, "resolved_links.json": {},
             "warns.json": {}, "responder_sessions.json": {}, "tickets.json": {},
-            "tickets_cerrados.json": {}, "welcome.json": {"enabled": False, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
+            "tickets_cerrados.json": {}, "welcome.json": {"enabled": True, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
             "wipe_config.json": {"manual": None, "reminders": []}, "encuestas.json": {},
             "server.json": {"name": "GAMAER CITY", "ip": ""},
             "roles.json": {}, "verified.json": {}, "moderation_logs.json": [],
@@ -135,6 +137,7 @@ admins: set[int] = set(SEED_ADMINS)
 recent_messages: deque[Any] = deque(maxlen=15)
 admin_states: dict[int, dict[str, Any]] = {}
 translation_locks: set[int] = set()
+last_flow_messages: dict[int, int] = {}
 
 
 def valid_token() -> bool:
@@ -203,6 +206,12 @@ def public_buttons() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🎫 Soporte", callback_data="nav:support"), InlineKeyboardButton("📅 Eventos", callback_data="nav:events")],
         [InlineKeyboardButton("🎁 Sorteos", callback_data="nav:giveaways"), InlineKeyboardButton("❓ Ayuda", callback_data="nav:help")],
     ])
+
+
+async def flow_prompt(update: Update, text: str, **kwargs: Any) -> None:
+    message = await update.effective_message.reply_text(text, **kwargs)
+    if update.effective_user and message:
+        last_flow_messages[update.effective_user.id] = message.message_id
 
 
 def link_host(url: str) -> str:
@@ -377,13 +386,14 @@ async def announcement_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     text = update.effective_message.text.partition(" ")[2].strip()
     if not text or all(not any(char.isalnum() for char in part) for part in context.args):
         admin_states[update.effective_user.id] = {"flow": "announcement"}
-        await update.effective_message.reply_text("📢 Escribe ahora el mensaje del anuncio. También puedes responder a un mensaje con /anuncio para copiarlo al grupo.\n\n/cancelar para salir.")
+        await flow_prompt(update, "📢 Escribe ahora el mensaje del anuncio. También puedes responder a un mensaje con /anuncio para copiarlo al grupo.\n\n/cancelar para salir.")
         return
     await publish_announcement(update, context, text)
 
 
 async def publish_announcement(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
     try:
+        await context.bot.get_chat(GROUP_ID)
         source = update.effective_message.reply_to_message
         footer = f"\n\n— Enviado por {mention(update.effective_user)}"
         if source:
@@ -400,6 +410,26 @@ async def publish_announcement(update: Update, context: ContextTypes.DEFAULT_TYP
             await update.effective_message.reply_text("Escribe /anuncio texto o responde con /anuncio a un mensaje multimedia."); return
         await update.effective_message.reply_text("✅ Anuncio enviado correctamente al grupo.")
     except Exception as exc: LOG.exception("announcement"); await update.effective_message.reply_text(f"❌ No se pudo anunciar: {esc(exc)}")
+
+
+async def test_group_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await private_admin(update): return
+    try:
+        chat = await context.bot.get_chat(GROUP_ID)
+        sent = await context.bot.send_message(GROUP_ID, f"🔧 Prueba de conexión de GAMAER CITY\nChat: {esc(chat.title or chat.username or GROUP_ID)}")
+        await update.effective_message.reply_text(f"✅ Envío correcto al grupo. Mensaje: {sent.message_id}")
+    except Exception as exc:
+        await update.effective_message.reply_text(f"❌ Telegram no permite enviar al GROUP_ID={GROUP_ID}. Revisa que sea el ID -100... del grupo y que el bot no esté silenciado: {esc(exc)}")
+
+
+async def reset_flow_on_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id if update.effective_user else None
+    if not user_id: return
+    admin_states.pop(user_id, None)
+    message_id = last_flow_messages.pop(user_id, None)
+    if message_id and update.effective_chat:
+        try: await context.bot.delete_message(update.effective_chat.id, message_id)
+        except Exception: pass
 
 
 async def moderation_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -579,7 +609,16 @@ async def translate_message(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if message.message_id in translation_locks: return False
     translation_locks.add(message.message_id)
     try:
-        translated = await asyncio.to_thread(GoogleTranslator(source="auto", target="es").translate, message.text)
+        try:
+            translated = await asyncio.to_thread(GoogleTranslator(source="auto", target="es").translate, message.text)
+        except Exception:
+            translated = ""
+        if not translated or translated.strip().casefold() == message.text.strip().casefold():
+            url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=" + urllib.parse.quote(message.text)
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=12)) as response:
+                    data = await response.json(content_type=None)
+                    translated = "".join(str(part[0]) for part in data[0] if part and part[0])
         if translated and translated.strip().casefold() != message.text.strip().casefold():
             await message.reply_text(f"🌐 <b>Traducción al español</b>\n{esc(translated)}", parse_mode=ParseMode.HTML)
             return True
@@ -731,19 +770,19 @@ async def panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     section = call.data.split(":", 1)[1]
     if section == "announcement":
         admin_states[call.from_user.id] = {"flow": "announcement"}
-        await call.message.reply_text("📢 Escribe ahora el mensaje que quieres publicar en GAMAER CITY.\n\n/cancelar para salir.")
+        await flow_prompt(update, "📢 Escribe ahora el mensaje que quieres publicar en GAMAER CITY.\n\n/cancelar para salir.")
         return
     if section == "setserver":
         admin_states[call.from_user.id] = {"flow": "setserver"}
-        await call.message.reply_text("🌐 Escribe la IP y opcionalmente el nombre. Ejemplo: 123.45.67.89 GAMAER CITY")
+        await flow_prompt(update, "🌐 Escribe la IP y opcionalmente el nombre. Ejemplo: 123.45.67.89 GAMAER CITY")
         return
     if section == "setwipe":
         admin_states[call.from_user.id] = {"flow": "setwipe"}
-        await call.message.reply_text("🧨 Escribe la fecha UTC con formato DD/MM/YYYY HH:MM. Ejemplo: 20/11/2026 19:00")
+        await flow_prompt(update, "🧨 Escribe la fecha UTC con formato DD/MM/YYYY HH:MM. Ejemplo: 20/11/2026 19:00")
         return
     if section in {"admin", "mod"}:
         admin_states[call.from_user.id] = {"flow": "assign_role", "role": "admin" if section == "admin" else "moderator"}
-        await call.message.reply_text(f"Escribe el ID numérico para asignar el rol {admin_states[call.from_user.id]['role']}.")
+        await flow_prompt(update, f"Escribe el ID numérico para asignar el rol {admin_states[call.from_user.id]['role']}.")
         return
     if section == "rules": text = await store.load("rules.txt")
     elif section == "server":
@@ -786,7 +825,7 @@ async def welcome_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     config = await store.load("welcome.json")
-    if not config.get("enabled") or not update.chat_member: return
+    if not update.chat_member: return
     member = update.chat_member.new_chat_member.user
     if update.chat_member.new_chat_member.status not in {ChatMemberStatus.MEMBER, ChatMemberStatus.RESTRICTED}: return
     verified = await store.load("verified.json")
@@ -795,7 +834,9 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             from telegram import ChatPermissions
             await context.bot.restrict_chat_member(GROUP_ID, member.id, ChatPermissions(can_send_messages=False, can_send_other_messages=False))
         except Exception: LOG.warning("No se pudo restringir a nuevo miembro", exc_info=True)
-    text = ("📜 <b>Reglas de GAMAER CITY</b>\n\n" + await store.load("rules.txt") + "\n\nPulsa el botón para confirmar que las has leído y verificarte.")
+    custom = config.get("text") or "👋 Bienvenido {nombre} a {grupo}!"
+    greeting = custom.replace("{nombre}", esc(member.first_name or member.full_name)).replace("{grupo}", esc(GROUP_NAME))
+    text = (greeting + "\n\n📜 <b>Reglas de GAMAER CITY</b>\n\n" + await store.load("rules.txt") + "\n\nPulsa el botón para confirmar que las has leído y verificarte.")
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ He leído las reglas y me verifico", callback_data=f"verify:{member.id}")]])
     await context.bot.send_message(update.effective_chat.id, text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
@@ -1099,12 +1140,13 @@ async def post_init(application: Application) -> None:
         BotCommand("setservidor", "🎮 Cambiar IP del servidor"), BotCommand("setenlaces", "🔗 Configurar enlaces oficiales"), BotCommand("setwipe", "🧨 Configurar wipe"),
         BotCommand("mantenimiento", "🔧 Activar modo mantenimiento"), BotCommand("fijar", "📌 Fijar mensaje oficial"), BotCommand("rol", "👤 Asignar rol"),
         BotCommand("evento", "📅 Crear o cancelar evento"), BotCommand("sorteo", "🎁 Crear o cerrar sorteo"), BotCommand("encuesta", "📊 Crear encuesta"),
-        BotCommand("cerrar_encuesta", "🔒 Cerrar encuesta"), BotCommand("bienvenida", "👋 Configurar bienvenida"), BotCommand("setbienvenida", "✏️ Cambiar bienvenida"),
+        BotCommand("cerrar_encuesta", "🔒 Cerrar encuesta"), BotCommand("testgrupo", "🔧 Probar envío al grupo"),
         BotCommand("addadmin", "👮 Añadir administrador"), BotCommand("admin", "👮 Asignar administrador por ID"), BotCommand("mod", "🛡️ Asignar moderador por ID"), BotCommand("support", "🎫 Asignar soporte por ID"), BotCommand("announcer", "📢 Asignar anunciante por ID"), BotCommand("deladmin", "❌ Eliminar administrador"), BotCommand("listadmins", "👥 Listar administradores"),
         BotCommand("ban", "🔨 Banear usuario"), BotCommand("kick", "🚪 Expulsar usuario"), BotCommand("mute", "🔇 Silenciar usuario"),
         BotCommand("unmute", "🔊 Quitar silencio"), BotCommand("warn", "⚠️ Advertir usuario"), BotCommand("claimadmin", "🔑 Reclamar acceso inicial"),
     ]
-    await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllPrivateChats())
+    # El menú privado muestra todas las opciones; la autorización se comprueba al ejecutar cada comando.
+    await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeAllPrivateChats())
     await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllGroupChats())
     for admin_id in sorted(admins | ({BOT_OWNER_ID} if BOT_OWNER_ID else set())):
         await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))
@@ -1116,10 +1158,10 @@ async def post_init(application: Application) -> None:
 def build_app() -> Application:
     if not valid_token() or not GROUP_ID: raise RuntimeError("Configura TELEGRAM_TOKEN y GROUP_ID en .env")
     app = Application.builder().token(TOKEN).post_init(post_init).build()
-    app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler("claimadmin", claim_admin_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
+    app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler("claimadmin", claim_admin_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("enlaces", official_links_cmd)); app.add_handler(CommandHandler(["wipe", "wipes"], wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("apelar", appeal_cmd)); app.add_handler(CommandHandler("reportar", report_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd)); app.add_handler(CommandHandler("testgrupo", test_group_cmd))
     app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler(["admin", "mod", "support", "announcer"], role_alias_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("mantenimiento", maintenance_cmd)); app.add_handler(CommandHandler("panel", panel_cmd)); app.add_handler(CommandHandler("fijar", pin_cmd)); app.add_handler(CommandHandler("rol", roles_cmd)); app.add_handler(CommandHandler(["evento", "eventos"], events_cmd)); app.add_handler(CommandHandler(["sorteo", "sorteos"], giveaway_cmd)); app.add_handler(CommandHandler("setenlaces", set_links_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
     app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(CallbackQueryHandler(verify_callback, pattern=r"^verify:")); app.add_handler(CallbackQueryHandler(public_nav_callback, pattern=r"^nav:")); app.add_handler(CallbackQueryHandler(panel_callback, pattern=r"^panel:")); app.add_handler(CallbackQueryHandler(giveaway_callback, pattern=r"^giveaway:")); app.add_handler(CallbackQueryHandler(appeal_callback, pattern=r"^appeal:")); app.add_handler(CallbackQueryHandler(moderation_confirmation_callback, pattern=r"^(confirmmod|cancelmod):")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
-    app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.TEXT & ~filters.COMMAND, media_router))
+    app.add_handler(MessageHandler(filters.COMMAND, reset_flow_on_command), group=-1); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.TEXT & ~filters.COMMAND, media_router))
     app.add_error_handler(error_handler)
     return app
 
