@@ -32,6 +32,7 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(asctime)s %(
 LOG = logging.getLogger("rust133")
 TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
 GROUP_ID = int(os.getenv("GROUP_ID", "0") or 0)
+GROUP_NAME = os.getenv("GROUP_NAME", "GAMAER CITY").strip() or "GAMAER CITY"
 SEED_ADMINS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().lstrip("-").isdigit()}
 DATA_DIR = Path(os.getenv("DATA_DIR", "."))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -65,7 +66,14 @@ class JsonStore:
             "warns.json": {}, "responder_sessions.json": {}, "tickets.json": {},
             "tickets_cerrados.json": {}, "welcome.json": {"enabled": False, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
             "wipe_config.json": {"manual": None, "reminders": []}, "encuestas.json": {},
-            "server.json": {"name": "Rust 133 Dev Blog", "ip": ""},
+            "server.json": {"name": "GAMAER CITY", "ip": ""},
+            "auto_replies.json": {"enabled": True, "rules": {
+                "hola": "👋 ¡Hola! Bienvenido a GAMAER CITY. Usa /help para ver los comandos.",
+                "reglas": "📜 Puedes consultar las reglas con /reglas.",
+                "ip": "🎮 La IP del servidor está disponible con /servidor.",
+                "wipe": "🧨 Consulta el próximo wipe con /wipe.",
+                "ayuda": "ℹ️ Usa /help para ver la ayuda de GAMAER CITY."
+            }},
             "rules.txt": "📜 <b>Reglas de Rust 133 Dev Blog</b>\n\n1. Respeta a la comunidad.\n2. No spam, estafas ni phishing.\n3. No enlaces a otros servidores sin autorización.\n4. No contenido ilegal o datos personales.\n5. La moderación puede borrar mensajes y sancionar cuentas.",
             "settings.json": {"moderation": True, "word_filter": True, "bad_words": []},
         }
@@ -146,6 +154,23 @@ def link_allowed(url: str) -> bool:
     return any(host == domain or host.endswith("." + domain) for domain in NO_LINKS)
 
 
+async def automatic_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    message = update.effective_message
+    if not group_message(update) or not message.text or message.text.startswith("/") or URL_RE.search(message.text) or await is_admin(message.from_user.id):
+        return False
+    config = await store.load("auto_replies.json")
+    if not config.get("enabled", True): return False
+    text = message.text.casefold()
+    for trigger, reply in config.get("rules", {}).items():
+        if re.search(r"(?<!\w)" + re.escape(trigger.casefold()) + r"(?!\w)", text):
+            try:
+                await message.reply_text(reply, parse_mode=ParseMode.HTML)
+            except Exception:
+                LOG.warning("No se pudo enviar respuesta automática", exc_info=True)
+            return True
+    return False
+
+
 def word_matches(text: str, words: list[str]) -> str | None:
     normalized = text.casefold()
     for word in words:
@@ -172,20 +197,20 @@ async def moderate_words(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     key = f"{GROUP_ID}:{message.from_user.id}"
     warns[key] = int(warns.get(key, 0)) + 1
     await store.save("warns.json", warns)
-    if warns[key] >= 3:
-        try:
-            await context.bot.ban_chat_member(GROUP_ID, message.from_user.id)
-            await context.bot.send_message(GROUP_ID, f"🚫 {mention(message.from_user)} ha sido expulsado tras 3 infracciones.", parse_mode=ParseMode.HTML)
-        except Exception:
-            LOG.warning("No se pudo sancionar automáticamente", exc_info=True)
+    # Nunca se banea automáticamente por una coincidencia: puede ser un falso positivo.
+    # La advertencia invita a pedir revisión y el administrador decide cualquier sanción.
+    try:
+        await context.bot.send_message(GROUP_ID, "ℹ️ Si crees que fue un falso positivo, contacta con un administrador mediante /soporte.")
+    except Exception:
+        pass
     return True
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     admin_text = ("\n\n<b>Admin</b>\n/addadmin /deladmin /listadmins\n/pendientes /responder /anuncio\n"
                   "/moderacion on|off /ban /kick /mute /unmute /warn\n/soporte /tickets /bienvenida /setbienvenida\n"
-                  "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas\n/servidor /setservidor /filtro") if await is_admin(update.effective_user.id) else ""
-    await update.effective_message.reply_text("🤖 <b>Rust 133 Dev Blog</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP y puerto del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML)
+                  "/setwipe /encuesta /encuestas /cerrar_encuesta /setreglas\n/servidor /setservidor /filtro /auto") if await is_admin(update.effective_user.id) else ""
+    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML)
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -254,7 +279,7 @@ async def server_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.effective_message.reply_text("ℹ️ La IP del servidor todavía no ha sido configurada por el equipo.")
         return
     await update.effective_message.reply_text(
-        f"🎮 <b>{esc(server.get('name', 'Servidor Rust'))}</b>\n"
+        f"🎮 <b>{esc(server.get('name', GROUP_NAME))}</b>\n"
         f"🌐 IP del servidor: <code>{esc(server['ip'])}</code>", parse_mode=ParseMode.HTML)
 
 
@@ -267,7 +292,7 @@ async def setserver_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not re.fullmatch(r"[A-Za-z0-9_.:-]+", ip):
         await update.effective_message.reply_text("IP inválida."); return
     server = await store.load("server.json")
-    server.update({"ip": ip, "name": " ".join(context.args[1:]) or server.get("name", "Servidor Rust")})
+    server.update({"ip": ip, "name": " ".join(context.args[1:]) or server.get("name", GROUP_NAME)})
     await store.save("server.json", server)
     await update.effective_message.reply_text("✅ Datos del servidor guardados.")
 
@@ -290,6 +315,29 @@ async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     else:
         await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra, /filtro remove palabra o /filtro list"); return
     await store.save("settings.json", settings); await update.effective_message.reply_text("✅ Filtro actualizado.")
+
+
+async def auto_reply_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await private_admin(update): return
+    config = await store.load("auto_replies.json")
+    if not context.args:
+        status = "activo" if config.get("enabled", True) else "inactivo"
+        await update.effective_message.reply_text(f"Respuestas automáticas: {status}\n" + "\n".join(f"• {k}: {v}" for k, v in config.get("rules", {}).items()))
+        return
+    action = context.args[0].lower()
+    if action in {"on", "off"}:
+        config["enabled"] = action == "on"
+    elif action == "list":
+        await update.effective_message.reply_text("\n".join(f"• {k}: {v}" for k, v in config.get("rules", {}).items()) or "No hay respuestas configuradas.")
+        return
+    elif action == "remove" and len(context.args) >= 2:
+        config.get("rules", {}).pop(context.args[1].casefold(), None)
+    elif action == "add" and len(context.args) >= 3:
+        trigger = context.args[1].casefold(); reply = " ".join(context.args[2:])
+        config.setdefault("rules", {})[trigger] = reply[:1000]
+    else:
+        await update.effective_message.reply_text("Usa /auto on|off, /auto list, /auto add palabra respuesta o /auto remove palabra"); return
+    await store.save("auto_replies.json", config); await update.effective_message.reply_text("✅ Respuestas automáticas actualizadas.")
 
 
 async def moderate_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -587,6 +635,7 @@ async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not group_message(update): return
     recent_messages.append(update.effective_message)
     if await moderate_words(update, context): return
+    if await automatic_reply(update, context): return
     await translate_message(update, context)
 
 
@@ -605,7 +654,7 @@ def build_app() -> Application:
     if not valid_token() or not GROUP_ID or not admins: raise RuntimeError("Configura TELEGRAM_TOKEN, GROUP_ID y ADMIN_IDS")
     app = Application.builder().token(TOKEN).post_init(post_init).build()
     app.add_handler(CommandHandler(["start"], start_cmd)); app.add_handler(CommandHandler(["help", "ayuda"], help_cmd)); app.add_handler(CommandHandler("reglas", rules_cmd)); app.add_handler(CommandHandler("devblog", devblog_cmd)); app.add_handler(CommandHandler("wipe", wipe_cmd)); app.add_handler(CommandHandler("soporte", soporte_cmd)); app.add_handler(CommandHandler("cancelar", cancel_cmd))
-    app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
+    app.add_handler(CommandHandler(["addadmin", "deladmin", "listadmins"], admins_cmd)); app.add_handler(CommandHandler("anuncio", announcement_cmd)); app.add_handler(CommandHandler("moderacion", moderation_cmd)); app.add_handler(CommandHandler("servidor", server_cmd)); app.add_handler(CommandHandler("setservidor", setserver_cmd)); app.add_handler(CommandHandler("filtro", filter_cmd)); app.add_handler(CommandHandler("auto", auto_reply_cmd)); app.add_handler(CommandHandler(["ban", "kick", "mute", "unmute", "warn"], moderate_user)); app.add_handler(CommandHandler("pendientes", pending_cmd)); app.add_handler(CommandHandler("setreglas", setrules_cmd)); app.add_handler(CommandHandler("setwipe", setwipe_cmd)); app.add_handler(CommandHandler("tickets", tickets_cmd)); app.add_handler(CommandHandler("responder", responder_cmd)); app.add_handler(CommandHandler("encuesta", encuesta_cmd)); app.add_handler(CommandHandler("encuestas", encuestas_cmd)); app.add_handler(CommandHandler("cerrar_encuesta", cerrar_encuesta_cmd)); app.add_handler(CommandHandler(["bienvenida", "setbienvenida"], welcome_cmd))
     app.add_handler(CallbackQueryHandler(link_callback, pattern=r"^(validar|expulsar):")); app.add_handler(CallbackQueryHandler(ticket_callback, pattern=r"^(atender|cerrar):")); app.add_handler(CallbackQueryHandler(poll_callback, pattern=r"^voto:")); app.add_handler(ChatMemberHandler(new_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & filters.TEXT & ~filters.COMMAND, interactive_text)); app.add_handler(MessageHandler(filters.Chat(GROUP_ID) & ~filters.TEXT & ~filters.COMMAND, media_router)); app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, interactive_text))
     return app
