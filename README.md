@@ -1,116 +1,84 @@
 # GAMAER CITY — Bot de comunidad
 
-Bot asíncrono basado en `python-telegram-bot` v20+ para administrar el grupo y servidor GAMAER CITY.
-
-## Funciones
-
-- Administradores dinámicos: `/addadmin`, `/deladmin`, `/listadmins`.
-- Revisión de enlaces con botones **Validar** y **Expulsar**, prevención de dobles resoluciones y `/pendientes`.
-- Anuncios privados con texto o multimedia mediante `/anuncio`.
-- Moderación configurable con `/moderacion on|off`.
-- `/ban`, `/kick`, `/mute`, `/unmute` y `/warn`.
-- Filtro de palabras: `/filtro on|off`, `/filtro add palabra`, `/filtro remove palabra`, `/filtro list`.
-- Las palabras filtradas usan `escalate` por defecto: primera infracción, mute de 5 minutos y advertencia; segunda, mute de 20 minutos y advertencia; tercera, expulsión permanente y ban.
-- También puedes elegir `warn`, `mute`, `kick` o `ban` explícitamente para una palabra.
-- Respuestas automáticas configurables: `/auto on|off`, `/auto list`, `/auto add palabra respuesta`, `/auto remove palabra`.
-- `/servidor` muestra únicamente la IP configurada del servidor.
-- Tickets privados con `/soporte` y `/tickets`.
-- Traducción automática al español.
-- `/reglas`, `/setreglas`, `/devblog` y `/wipe`.
-- Bienvenida configurable con `/bienvenida on|off` y `/setbienvenida`.
-- Encuestas con cierre programado.
-- Automatizaciones periódicas: cierre de encuestas vencidas, recordatorios de wipe y avisos de tickets inactivos.
-- Persistencia JSON atómica protegida por `asyncio.Lock`.
+Bot asíncrono (`python-telegram-bot` 21/22) para moderar y gestionar el grupo y el servidor de Rust de GAMAER CITY.
+Persistencia en JSON atómico, roles con permisos, auditoría y pruebas automáticas.
 
 ## Instalación
 
+Requiere Python 3.10 o superior.
+
 ```bash
-python3 -m venv .venv
-. .venv/bin/activate
+python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env      # rellena TELEGRAM_TOKEN y GROUP_ID como mínimo
+python main.py
+```
+
+El archivo `.env` es opcional si las variables ya están en el entorno (systemd, Docker, etc.). **Nunca subas `.env` ni `data/`** (el `.gitignore` ya los excluye).
+
+### Docker
+
+```bash
+docker build -t gamaer-bot .
+docker run -d --restart unless-stopped --env-file .env -v gamaer-data:/data gamaer-bot
 ```
 
 ## Variables de entorno
 
-```bash
-export TELEGRAM_TOKEN='TOKEN_DE_BOTFATHER'
-export GROUP_ID='-1001234567890'
-export GROUP_NAME='GAMAER CITY'
-export ADMIN_IDS='123456789,987654321' # opcional
-export BOT_OWNER_ID='123456789' # opcional: tu ID como propietario del bot
-export DATA_DIR='/ruta/persistente/gamaer-city-data'
-```
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `TELEGRAM_TOKEN` | Sí | Token de @BotFather |
+| `GROUP_ID` | Sí | ID numérico del supergrupo (`-100…`) |
+| `BOT_OWNER_ID` | Recomendada | Tu ID: propietario del bot, único que gestiona roles/admins. Si falta, los de `ADMIN_IDS` son propietarios |
+| `ADMIN_IDS` | No | IDs iniciales del equipo (rol `admin`) |
+| `GROUP_NAME` | No | Nombre visible |
+| `DATA_DIR` | No | Carpeta de datos (por defecto `./data`). Haz copias de seguridad |
+| `LOG_LEVEL` | No | `INFO` por defecto |
+| `TRANSLATE_ENABLED` | No | `true`/`false`. Ver *Privacidad* |
+| `MEDIA_MODERATION` | No | `true`/`false`. Borra multimedia de usuarios sin rol |
 
-El archivo `.env` es obligatorio. `bot.py` y `main.py` lo buscan en la carpeta del proyecto, no solo en el directorio actual. Solo `TELEGRAM_TOKEN` y `GROUP_ID` son obligatorios. `ADMIN_IDS` y `BOT_OWNER_ID` son opcionales. `BOT_OWNER_ID` es tu ID personal de Telegram como propietario del bot creado en BotFather; permite administrar el bot desde el chat privado aunque no seas propietario del grupo. Usa `.env.example` como plantilla y nunca subas `.env` al repositorio.
+Configuración del bot en Telegram: añádelo al grupo como **administrador** con permisos para borrar mensajes, restringir miembros, banear y fijar mensajes, y desactiva *Privacy Mode* en @BotFather.
 
-Al iniciar, el bot registra automáticamente los comandos públicos en grupos y chats privados. Los comandos administrativos se registran únicamente en el menú privado del propietario (`BOT_OWNER_ID`) y de los IDs que estén en `ADMIN_IDS`. Telegram puede tardar unos segundos en actualizar el botón `/` o el menú. También puedes configurarlos desde `@BotFather` con `/setcommands`, pero no es necesario si el bot ha iniciado correctamente.
+## Roles y permisos
 
-En el chat privado, `/start` y `/help` muestran un teclado con botones para las funciones frecuentes. El `/panel` incluye botones para reglas, servidor, tickets, enlaces, mantenimiento y asignación de Admin o Mod. También puedes usar los alias rápidos: `/admin USER_ID`, `/mod USER_ID`, `/support USER_ID` y `/announcer USER_ID`.
+Solo el **propietario** gestiona roles (`/addadmin`, `/deladmin`, `/rol`, `/admin`, `/mod`, `/support`, `/announcer`). Un admin no puede ascender a otros.
 
-Las respuestas públicas incluyen navegación con botones inline y emojis. El bot no inventa configuraciones: si la IP o el wipe no se han guardado, muestra “no configurado” y explica qué comando administrativo debe usarse. El contador del wipe usa exactamente la fecha y hora almacenadas en `/setwipe`.
+| Rol | Puede |
+|---|---|
+| `owner` | Todo, incluida la gestión de roles |
+| `admin` | Moderar, soporte, anuncios y configuración |
+| `moderator` | Enlaces pendientes, `/ban` `/kick` `/mute` `/unmute` `/warn`, filtro de palabras, apelaciones y reportes |
+| `support` | Tickets y `/responder` |
+| `announcer` | `/anuncio`, `/evento`, `/sorteo`, `/encuesta` |
 
-La traducción del grupo es automática: cuando un usuario no administrador escribe un mensaje en otro idioma, el bot responde al mensaje original con `🌐 Traducción al español`. Si el texto ya está en español, no responde para no generar ruido. Los enlaces se moderan antes de traducirse y los comandos no se traducen.
+Los avisos privados (tickets, enlaces, apelaciones…) solo llegan a quien tiene el permiso correspondiente. Los administradores del grupo (también los anónimos) y otros bots nunca se moderan. No se puede sancionar a miembros del equipo.
 
-Los administradores añadidos con `/addadmin` se guardan en `admins.json`. Todos los administradores deben abrir el chat privado del bot y usar `/start` al menos una vez para recibir avisos.
+## Funciones
 
-## Comandos
+- **Verificación de entrada:** el nuevo miembro queda silenciado hasta pulsar su botón de aceptación de reglas. Solo se dispara cuando alguien *entra* y el botón nunca levanta un silencio temporal impuesto por moderación.
+- **Enlaces:** se retiran y pasan a revisión (Validar / Expulsar). Se detectan también los ocultos tras texto y los dominios sin `https://`. Solo se permiten `facepunch.com` y Steam.
+- **Filtro de palabras** (`/filtro on|off|add|remove|list`): acción `escalate` por defecto (1.ª: mute 5 min · 2.ª: mute 20 min · 3.ª: baneo y aviso al equipo). También `warn`, `mute`, `kick`, `ban` por palabra. Contador propio, separado de los `/warn` manuales.
+- **Moderación manual:** `/ban` y `/kick` piden confirmación con botones (caduca en 10 min); `/mute ID MINUTOS`, `/unmute`, `/warn` (3 = baneo). Todo queda en `moderation_logs.json`.
+- **Apelaciones** (`/apelar`), **reportes** (`/reportar ID motivo`) y **tickets** (`/soporte`, `/tickets`) con límite de frecuencia.
+- **Anuncios** (`/anuncio`, texto o multimedia), **eventos** con recordatorio (`/evento crear Título | 2026-11-20T19:00:00 | detalles`), **sorteos** (ganador con `secrets`), **encuestas** con cierre programado.
+- **Servidor y wipe:** `/setservidor`, `/servidor`, `/setwipe DD/MM/YYYY HH:MM` (UTC), `/wipe`, `/wipe recordatorio`.
+- **Respuestas automáticas** (`/auto`), reglas (`/setreglas`), enlaces oficiales (`/setenlaces`), mensaje fijado (`/fijar`), modo mantenimiento, `/devblog`, panel (`/panel`).
+- **Traducción automática** al español de mensajes en otros idiomas (detecta el idioma; no responde a textos en español).
+- Las bienvenidas son automáticas (acompañan a la verificación); los comandos de bienvenida manual ya no existen.
 
-Usuarios: `/help`, `/reglas`, `/devblog`, `/servidor`, `/wipe`, `/wipe recordatorio`, `/soporte`.
+## Seguridad y privacidad
 
-Administradores: `/addadmin ID`, `/deladmin ID`, `/listadmins`, `/anuncio`, `/pendientes`, `/moderacion on|off`, `/setservidor IP Nombre`, `/filtro on|off`, `/filtro add palabra [escalate|warn|mute|kick|ban]`, `/filtro remove palabra`, `/filtro list`, `/auto on|off`, `/auto add palabra respuesta`, `/auto remove palabra`, `/ban ID`, `/kick ID`, `/mute ID MIN`, `/unmute ID`, `/warn ID`, `/tickets`, `/bienvenida on|off`, `/setbienvenida texto`, `/setreglas texto`, `/setwipe DD/MM/YYYY HH:MM`, `/encuesta Título | Opción 1 | Opción 2 | duracion=30m`.
+- El token **no se escribe en los logs** (los clientes HTTP se fijan en `WARNING`). Los errores internos no se muestran a los usuarios y solo se avisa al propietario, como mucho cada 10 minutos.
+- Los archivos de datos se escriben de forma atómica con permisos `600`; si uno se corrompe se conserva una copia `*.corrupt-<fecha>` antes de reiniciarlo.
+- Los handlers y las tareas periódicas se serializan con un bloqueo global para evitar pérdidas de datos.
+- **Privacidad:** con `TRANSLATE_ENABLED=true`, el texto de los mensajes de usuarios sin rol se envía al servicio de traducción de Google. Infórmalo en las reglas o desactívalo.
+- Los datos guardados incluyen IDs, nombres y textos de tickets/apelaciones/reportes. Aplica tu política de retención y protege `DATA_DIR`.
 
-Ejemplos de acciones manualmente configuradas:
-
-```text
-/filtro add phishing ban
-/filtro add spam mute
-/filtro add palabra_prohibida escalate
-```
-
-Si no indicas una acción, se usa `escalate`. El baneo ocurre solamente después de la tercera infracción de una palabra configurada, siguiendo la escalada definida; una palabra nueva nunca produce un ban en la primera detección.
-
-Ejemplo de configuración del servidor:
-
-```text
-/setservidor 123.45.67.89 GAMAER CITY
-```
-
-El usuario solo verá la IP mediante `/servidor`; el bot no publica puerto ni comandos técnicos.
-
-## Permisos y seguridad
-
-Añade el bot como administrador con permisos para borrar mensajes, restringir miembros y banear. Desactiva Privacy Mode en BotFather. Los enlaces siempre requieren revisión mediante botones. Las coincidencias del filtro de palabras no generan expulsión automática: un administrador debe revisar cualquier sanción.
-
-No guardes el token en el código. Haz copias de seguridad de `DATA_DIR` y no subas sus archivos JSON al repositorio.
-
-## Ejecutar
+## Desarrollo
 
 ```bash
-python bot.py
-# o
-python main.py
+pip install -r requirements-dev.txt
+python -m pyflakes bot.py main.py && bandit -q -r bot.py main.py && python -m pytest tests -q
 ```
 
-## Funciones avanzadas
-
-- **Verificación segura de Telegram:** los nuevos miembros quedan restringidos hasta pulsar el botón de aceptación de reglas. El bot guarda la verificación en `verified.json` y solo libera al usuario que pulsó su propio botón.
-- **Apelaciones:** `/apelar motivo` en privado envía la solicitud a los administradores.
-- **Registro:** las acciones relevantes se guardan en `moderation_logs.json`.
-- **Tickets y reportes:** `/soporte`, `/tickets` y `/reportar USER_ID motivo`.
-- **Eventos:** `/evento crear Título | fecha | detalles`, `/eventos` y `/evento cancelar ID`.
-- **Sorteos:** `/sorteo crear Premio`, `/sorteos`; los usuarios participan con un botón y no pueden registrarse dos veces.
-- **Calendario de wipe:** `/wipe` y `/wipes`, con fecha manual y recordatorios privados.
-- **Mensaje oficial fijado:** responde a un mensaje del grupo con `/fijar` como administrador.
-- **Enlaces oficiales:** `/enlaces` para usuarios y `/setenlaces discord|web|channel|donaciones URL` para administradores.
-- **Panel:** `/panel` muestra botones de enlaces, tickets, reglas, servidor y mantenimiento.
-- **Roles:** `/rol USER_ID admin|moderator|support|announcer|user`.
-- **Mantenimiento:** `/mantenimiento on|off` bloquea mensajes normales de usuarios mientras los administradores siguen operativos.
-- **Recuperación:** los errores se registran y se notifica a los administradores sin detener el polling.
-
-El filtrado y los enlaces siguen requiriendo configuración explícita. Las sanciones graves deben revisarse conforme a las reglas de GAMAER CITY.
-
-## Funciones finales
-
-Las apelaciones ahora incluyen botones para **retirar sanción**, **mantener** o **rechazar**. Los comandos `/ban` y `/kick` requieren confirmar la acción mediante botones antes de ejecutarse. Los sorteos se cierran con `/sorteo cerrar ID` y el bot elige un ganador aleatorio entre los participantes únicos. Los eventos aceptan fecha ISO en `/evento crear Título | 2026-11-20T19:00:00 | detalles` y envían un recordatorio una hora antes.
-
-El botón de mantenimiento del `/panel` ahora cambia el modo de mantenimiento. El comando `/fijar`, usado respondiendo a un mensaje del grupo, guarda el mensaje oficial; después `/setservidor` y `/setreglas` intentan actualizarlo automáticamente con la IP, reglas y comandos útiles. Los errores no controlados se registran y notifican a los administradores sin detener el proceso de polling.
+La integración continua (`.github/workflows/ci.yml`) ejecuta lo mismo en Python 3.10 y 3.12.
