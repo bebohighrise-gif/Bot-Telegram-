@@ -26,7 +26,7 @@ from typing import Any
 import feedparser
 import aiohttp
 from dotenv import load_dotenv
-from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, MenuButtonCommands, ReplyKeyboardMarkup, Update
+from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonCommands, Update
 from telegram import ChatPermissions
 from telegram.constants import ChatMemberStatus, MessageEntityType, ParseMode, UpdateType
 from telegram.error import BadRequest, NetworkError, TelegramError, TimedOut
@@ -409,6 +409,18 @@ def public_buttons() -> InlineKeyboardMarkup:
     ])
 
 
+def admin_buttons() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📜 Reglas", callback_data="nav:rules"), InlineKeyboardButton("🎮 Servidor", callback_data="nav:server")],
+        [InlineKeyboardButton("🧨 Wipe", callback_data="nav:wipe"), InlineKeyboardButton("🔗 Enlaces", callback_data="nav:links")],
+        [InlineKeyboardButton("📢 Crear anuncio", callback_data="panel:announcement")],
+        [InlineKeyboardButton("🌐 Configurar IP", callback_data="panel:setserver"), InlineKeyboardButton("🧨 Configurar wipe", callback_data="panel:setwipe")],
+        [InlineKeyboardButton("🎫 Tickets", callback_data="panel:tickets"), InlineKeyboardButton("🔎 Enlaces", callback_data="panel:links")],
+        [InlineKeyboardButton("👮 Admin", callback_data="panel:admin"), InlineKeyboardButton("🛡️ Mod", callback_data="panel:mod")],
+        [InlineKeyboardButton("🛠️ Mantenimiento", callback_data="panel:maintenance")],
+    ])
+
+
 async def flow_prompt(update: Update, text: str, **kwargs: Any) -> None:
     message = await update.effective_message.reply_text(text, **kwargs)
     if update.effective_user and message:
@@ -565,17 +577,14 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                   "/panel /anuncio /pendientes /responder /tickets /moderacion /filtro /auto\n"
                   "/ban /kick /mute /unmute /warn /setreglas /setservidor /setenlaces /setwipe\n"
                   "/mantenimiento /fijar /rol /evento /sorteo /encuesta /cerrar_encuesta /testgrupo") if await is_admin(update.effective_user.id) else ""
-    keyboard = [[KeyboardButton("/reglas 📜"), KeyboardButton("/servidor 🎮"), KeyboardButton("/wipe 🧨")], [KeyboardButton("/soporte 🎫"), KeyboardButton("/enlaces 🔗"), KeyboardButton("/eventos 📅")]]
-    if await is_admin(update.effective_user.id):
-        keyboard += [[KeyboardButton("/panel 🛠️"), KeyboardButton("/anuncio 📢"), KeyboardButton("/tickets 🎫")], [KeyboardButton("/filtro 🛡️"), KeyboardButton("/auto 🤖"), KeyboardButton("/mantenimiento 🔧")], [KeyboardButton("/sorteo 🎁")]]
-    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
-    if update.effective_chat.type == "private":
-        await update.effective_message.reply_text("Usa también el teclado inferior para acceder rápidamente a las funciones principales.", reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True, is_persistent=True))
+    markup = admin_buttons() if await is_admin(update.effective_user.id) else public_buttons()
+    await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     extra = " Si eres el propietario del grupo y aún no hay admins, usa /claimadmin." if not admins else ""
-    await update.effective_message.reply_text("✅ <b>GAMAER CITY</b>\nBot conectado. Usa los botones o /help para ver todas las funciones." + extra, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
+    markup = admin_buttons() if await is_admin(update.effective_user.id) else public_buttons()
+    await update.effective_message.reply_text("✅ <b>GAMAER CITY</b>\nBot conectado. Pulsa una acción debajo de este mensaje o usa /help." + extra, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
 async def claim_admin_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1212,16 +1221,19 @@ async def panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         server = await store.load("server.json")
         text = f"🎮 {esc(server.get('name', GROUP_NAME))}\nIP: <code>{esc(server.get('ip') or 'no configurada')}</code>"
     elif section == "links":
-        text = "Usa /pendientes para revisar enlaces."
+        pending = await store.load("pending_links.json")
+        text = "🔎 No hay enlaces pendientes." if not pending else "🔎 <b>Enlaces pendientes</b>\n" + "\n".join(f"• #{esc(item['link_id'])} — {esc(item['url'])}" for item in list(pending.values())[:20])
     elif section == "tickets":
-        text = "Usa /tickets para ver tickets activos."
+        tickets = await store.load("tickets.json")
+        active = [item for item in tickets.values() if item.get("status") != "cerrado"]
+        text = "🎫 No hay tickets activos." if not active else "🎫 <b>Tickets activos</b>\n" + "\n".join(f"• #{esc(item['ticket_id'])} — {esc(item['name'])} — {esc(item['status'])}" for item in active[:20])
     else:
         settings = await store.load("settings.json")
         settings["maintenance"] = not settings.get("maintenance", False)
         await store.save("settings.json", settings)
         await audit("maintenance_panel", call.from_user.id, details=str(settings["maintenance"]))
         text = f"✅ Mantenimiento {'activado' if settings['maintenance'] else 'desactivado'}"
-    await safe_edit(call, text, parse_mode=ParseMode.HTML)
+    await safe_edit(call, text, parse_mode=ParseMode.HTML, reply_markup=admin_buttons())
 
 
 async def public_nav_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1232,15 +1244,35 @@ async def public_nav_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         text = "ℹ️ La IP aún no está configurada por el equipo." if not server.get("ip") else f"🎮 <b>{esc(server.get('name', GROUP_NAME))}</b>\n🌐 IP: <code>{esc(server['ip'])}</code>"
     elif section == "wipe":
         config = await store.load("wipe_config.json")
-        text = "ℹ️ El wipe todavía no está configurado. El equipo debe usar /setwipe." if not config.get("manual") else "🧨 Consulta la fecha y el contador con /wipe."
+        if not config.get("manual"):
+            text = "ℹ️ El próximo wipe todavía no está configurado."
+        else:
+            try:
+                target = datetime.fromisoformat(config["manual"])
+                remaining = max(0, int((target - datetime.now(timezone.utc)).total_seconds()))
+                days, rem = divmod(remaining, 86400); hours, rem = divmod(rem, 3600); minutes = rem // 60
+                text = f"🧨 <b>Próximo wipe</b>\n📅 {target.strftime('%d/%m/%Y')}\n⏰ {target.strftime('%H:%M')} UTC\n⏳ Faltan {days} días, {hours} horas y {minutes} minutos."
+            except (ValueError, TypeError):
+                text = "ℹ️ La configuración del wipe no es válida."
     elif section == "links":
         links = await store.load("official_links.json"); text = "🔗 <b>Enlaces oficiales</b>\n" + "\n".join(f"• {esc(k.title())}: {esc(v)}" for k, v in links.items() if v) if any(links.values()) else "ℹ️ Todavía no hay enlaces oficiales configurados."
-    elif section == "support": text = "🎫 Para abrir un ticket, pulsa /soporte y escribe tu consulta."
+    elif section == "support":
+        if call.message and call.message.chat.type == "private":
+            admin_states[call.from_user.id] = {"flow": "ticket"}
+            await flow_prompt(update, "🎫 Escribe ahora tu consulta para abrir el ticket.\n\nPulsa /cancelar para salir.")
+            return
+        try:
+            admin_states[call.from_user.id] = {"flow": "ticket"}
+            await context.bot.send_message(call.from_user.id, "🎫 Escribe aquí tu consulta para abrir un ticket.")
+            text = "🎫 Te envié el formulario al chat privado del bot."
+        except TelegramError:
+            text = "🎫 Abre primero el chat privado del bot para crear un ticket."
     elif section == "events":
         events = await store.load("events.json"); active = [e for e in events.values() if e.get("status") == "active"]; text = "📅 Eventos activos:\n" + "\n".join(f"• #{e['id']} — {esc(e['text'])}" for e in active) if active else "📅 No hay eventos configurados."
     elif section == "giveaways":
         giveaways = await store.load("giveaways.json"); active = [g for g in giveaways.values() if g.get("status") == "active"]; text = "🎁 Sorteos activos:\n" + "\n".join(f"• #{g['id']} — {esc(g['prize'])}" for g in active) if active else "🎁 No hay sorteos configurados."
-    else: text = "🤖 Usa /help para ver todos los comandos disponibles."
+    elif section == "help": text = "🤖 <b>Ayuda de GAMAER CITY</b>\nPulsa cualquier botón para ejecutar la acción directamente."
+    else: text = "🤖 Acción no disponible."
     await safe_edit(call, text, parse_mode=ParseMode.HTML, reply_markup=public_buttons())
 
 
@@ -1650,6 +1682,28 @@ async def cerrar_encuesta_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
 FLOW_PERMISSIONS = {"setserver": "configure", "setwipe": "configure", "announcement": "announce", "assign_role": "owner", "respond_number": "support", "respond_text": "support", "ticket_reply": "support"}
 
 
+async def keyboard_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    label = (update.effective_message.text or "").strip()
+    actions = {
+        "📜 Reglas": rules_cmd, "🎮 Servidor": server_cmd, "🧨 Wipe": wipe_cmd,
+        "🎫 Soporte": soporte_cmd, "🔗 Enlaces": official_links_cmd, "📅 Eventos": events_cmd,
+        "🛠️ Panel": panel_cmd, "🎫 Tickets": tickets_cmd, "🛡️ Filtro": filter_cmd,
+        "🤖 Auto-respuestas": auto_reply_cmd, "🔧 Mantenimiento": maintenance_cmd,
+        "🎁 Sorteo": giveaway_cmd,
+    }
+    if label == "📢 Anuncio":
+        if not await private_admin(update, "announce"): return True
+        admin_states[update.effective_user.id] = {"flow": "announcement"}
+        await flow_prompt(update, "📢 Escribe el anuncio que se enviará al grupo. También puedes enviar una foto o archivo.\n\n/cancelar para salir.")
+        return True
+    if label == "👮 Roles":
+        await panel_cmd(update, context); return True
+    handler = actions.get(label)
+    if handler:
+        await handler(update, context); return True
+    return False
+
+
 async def handle_private_flow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Flujos de varios pasos. Solo en privado, con permiso comprobado en cada paso y caducidad automática."""
     message, user = update.effective_message, update.effective_user
@@ -1734,6 +1788,8 @@ async def interactive_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not message or not user or not chat:
         return
     if chat.type == "private":
+        if await keyboard_action(update, context):
+            return
         await handle_private_flow(update, context)
         return
     if not group_message(update):
