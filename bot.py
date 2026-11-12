@@ -642,7 +642,7 @@ async def publish_announcement(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         await context.bot.get_chat(GROUP_ID)
         source = update.effective_message.reply_to_message
-        footer = f"\n\n— Enviado por {mention(update.effective_user)}"
+        footer = "\n\n🤖 Publicado por GAMAER CITY"
         if source:
             if text and source.caption:
                 text = f"{source.caption}\n\n{text}"
@@ -650,7 +650,7 @@ async def publish_announcement(update: Update, context: ContextTypes.DEFAULT_TYP
                 await context.bot.send_message(GROUP_ID, f"📢 <b>ANUNCIO</b>\n\n{esc(text or source.text)}{footer}", parse_mode=ParseMode.HTML)
             else:
                 await context.bot.copy_message(GROUP_ID, update.effective_chat.id, source.message_id)
-                await context.bot.send_message(GROUP_ID, f"— Enviado por {mention(update.effective_user)}", parse_mode=ParseMode.HTML)
+                await context.bot.send_message(GROUP_ID, "🤖 Publicado por GAMAER CITY", parse_mode=ParseMode.HTML)
         elif text:
             await context.bot.send_message(GROUP_ID, f"📢 <b>ANUNCIO</b>\n\n{esc(text)}{footer}", parse_mode=ParseMode.HTML)
         else:
