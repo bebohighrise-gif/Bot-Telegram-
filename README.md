@@ -14,7 +14,25 @@ cp .env.example .env      # rellena TELEGRAM_TOKEN y GROUP_ID como mínimo
 python main.py
 ```
 
-El archivo `.env` es opcional si las variables ya están en el entorno (systemd, Docker, etc.). **Nunca subas `.env` ni `data/`** (el `.gitignore` ya los excluye).
+El archivo `.env` es opcional si las variables ya están en el entorno (systemd, Docker, Botkeep, etc.). `main.py` arranca el bot y la Mini App al mismo tiempo. La Mini App escucha en `0.0.0.0:$PORT`; si la plataforma no define `PORT`, usa `8080`. **Nunca subas `.env` ni `data/`** (el `.gitignore` ya los excluye).
+
+### Botkeep
+
+Usa este comando de inicio:
+
+```bash
+python main.py
+```
+
+No fijes un puerto manual distinto al que Botkeep asigna. El servidor usa automáticamente la variable `PORT` de Botkeep y expone:
+
+```text
+/                  Mini App de verificación
+/verification.html  Mini App de verificación
+/healthz            comprobación JSON para Botkeep
+```
+
+Botkeep debe marcar el servicio como **Web Service** o habilitar el puerto HTTP público. Si se ejecuta como worker sin puerto público, Telegram no podrá abrir la Mini App aunque el bot de Telegram sí funcione.
 
 ### Docker
 
@@ -22,6 +40,8 @@ El archivo `.env` es opcional si las variables ya están en el entorno (systemd,
 docker build -t gamaer-bot .
 docker run -d --restart unless-stopped --env-file .env -v gamaer-data:/data gamaer-bot
 ```
+
+En Docker también se puede pasar el puerto de la plataforma: `-e PORT=8080 -p 8080:8080`.
 
 ## Variables de entorno
 
