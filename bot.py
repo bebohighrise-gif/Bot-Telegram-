@@ -108,7 +108,7 @@ class JsonStore:
         self.root = root
         self.lock = asyncio.Lock()
         self.defaults = {
-            "admins.json": [], "pending_links.json": {}, "resolved_links.json": {},
+            "admins.json": [], "pending_links.json": {}, "resolved_links.json": {}, "pending_media.json": {}, "resolved_media.json": {},
             "warns.json": {}, "responder_sessions.json": {}, "tickets.json": {},
             "tickets_cerrados.json": {}, "welcome.json": {"enabled": True, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
             "wipe_config.json": {"manual": None, "reminders": []}, "encuestas.json": {},
@@ -880,30 +880,31 @@ async def process_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bo
     if not bad:
         return False
     user = message.from_user
-    try:
-        await message.delete()
-    except TelegramError:
-        LOG.warning("No se pudo borrar enlace", exc_info=True)
     link_id = uid()
     pending = await store.load("pending_links.json")
     while len(pending) >= 500:  # tope para que un ataque de spam no haga crecer el archivo sin límite
         pending.pop(next(iter(pending)))
     pending[link_id] = {"link_id": link_id, "url": bad[0][:500], "user_id": user.id, "username": user.username, "name": user.full_name, "chat_id": message.chat_id, "message_id": message.message_id, "timestamp": now()}
     await store.save("pending_links.json", pending)
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Validar", callback_data=f"validar:{link_id}"), InlineKeyboardButton("🚫 Expulsar", callback_data=f"expulsar:{link_id}")]])
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Aceptar", callback_data=f"link_accept:{link_id}"), InlineKeyboardButton("🗑️ Cancelar", callback_data=f"link_cancel:{link_id}")]])
     username = f"@{esc(user.username)}" if user.username else "sin usuario"
     info = f"🔎 <b>Enlace pendiente</b> #{link_id}\nURL: <code>{esc(bad[0][:500])}</code>\nAutor: {esc(user.full_name)} {username} (<code>{user.id}</code>)\nFecha: {now()}"
-    await notify_owner(context, info, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+    await notify_staff(context, "moderate", info, parse_mode=ParseMode.HTML, reply_markup=keyboard)
     return True
 
 
 async def pending_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await private_admin(update, "moderate"): return
     pending = await store.load("pending_links.json")
-    if not pending: await update.effective_message.reply_text("✅ No hay enlaces pendientes."); return
+    pending_media = await store.load("pending_media.json")
+    if not pending and not pending_media:
+        await update.effective_message.reply_text("✅ No hay enlaces ni multimedia pendientes."); return
     for item in list(pending.values())[:20]:
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Validar", callback_data=f"validar:{item['link_id']}"), InlineKeyboardButton("🚫 Expulsar", callback_data=f"expulsar:{item['link_id']}")]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Aceptar", callback_data=f"link_accept:{item['link_id']}"), InlineKeyboardButton("🗑️ Cancelar", callback_data=f"link_cancel:{item['link_id']}")]])
         await update.effective_message.reply_text(f"#{item['link_id']} <code>{esc(item['url'])}</code>\n{esc(item['name'])}", parse_mode=ParseMode.HTML, reply_markup=keyboard)
+    for item in list(pending_media.values())[:20]:
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Aceptar", callback_data=f"media_accept:{item['media_id']}"), InlineKeyboardButton("🗑️ Cancelar", callback_data=f"media_cancel:{item['media_id']}")]])
+        await update.effective_message.reply_text(f"🖼️ <b>Multimedia #{item['media_id']}</b>\nTipo: {esc(item['kind'])}\nAutor: {esc(item['name'])} (<code>{item['user_id']}</code>)", parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 
 async def link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -911,6 +912,7 @@ async def link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not await callback_guard(call, "moderate"):
         return
     action, link_id = call.data.split(":", 1)
+    action = {"validar": "accept", "expulsar": "cancel"}.get(action, action)
     pending = await store.load("pending_links.json")
     resolved = await store.load("resolved_links.json")
     if link_id in resolved or link_id not in pending:
@@ -923,12 +925,11 @@ async def link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await store.save("pending_links.json", pending)
     await store.save("resolved_links.json", resolved)
     try:
-        if action == "validar":
-            result = "✅ Validado"
+        if action == "accept":
+            result = "✅ Aceptado: el enlace permanece en el grupo."
         else:
-            await context.bot.ban_chat_member(GROUP_ID, item["user_id"])
-            await context.bot.unban_chat_member(GROUP_ID, item["user_id"], only_if_banned=True)
-            result = "🚫 Expulsado"
+            await context.bot.delete_message(GROUP_ID, item["message_id"])
+            result = "🗑️ Cancelado: el mensaje fue eliminado del grupo."
     except TelegramError as exc:
         result = f"❌ Error: {esc(exc)}"
     await audit(f"link_{action}", call.from_user.id, item["user_id"], item["url"][:200])
@@ -993,11 +994,49 @@ async def media_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     settings = await store.load("settings.json")
     if settings.get("moderation", True) and message_kind(message) in MEDIA_ATTRS:
         try:
-            await message.delete()
             kind = message_kind(message)
-            await notify_owner(context, f"🖼️ <b>Multimedia retirada</b>\nAutor: {mention(message.from_user)} (<code>{message.from_user.id}</code>)\nTipo: {esc(kind)}\nMensaje: <code>{message.message_id}</code>", parse_mode=ParseMode.HTML)
+            media_id = uid()
+            pending = await store.load("pending_media.json")
+            while len(pending) >= 500:
+                pending.pop(next(iter(pending)))
+            pending[media_id] = {
+                "media_id": media_id, "user_id": message.from_user.id,
+                "username": message.from_user.username, "name": message.from_user.full_name,
+                "chat_id": message.chat_id, "message_id": message.message_id,
+                "kind": kind, "timestamp": now(),
+            }
+            await store.save("pending_media.json", pending)
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Aceptar", callback_data=f"media_accept:{media_id}"), InlineKeyboardButton("🗑️ Cancelar", callback_data=f"media_cancel:{media_id}")]])
+            info = f"🖼️ <b>Multimedia pendiente</b> #{media_id}\nAutor: {mention(message.from_user)} (<code>{message.from_user.id}</code>)\nTipo: {esc(kind)}\nMensaje: <code>{message.message_id}</code>\n\n✅ Aceptar: permanece en el grupo\n🗑️ Cancelar: eliminar del grupo"
+            await notify_staff(context, "moderate", info, parse_mode=ParseMode.HTML, reply_markup=keyboard)
         except TelegramError:
             LOG.warning("No se pudo moderar multimedia", exc_info=True)
+
+
+async def media_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    call = update.callback_query
+    if not await callback_guard(call, "moderate"):
+        return
+    action, media_id = call.data.split(":", 1)
+    pending = await store.load("pending_media.json")
+    item = pending.pop(media_id, None)
+    if not item:
+        await safe_edit(call, "ℹ️ Este contenido ya fue resuelto.")
+        return
+    resolved = await store.load("resolved_media.json")
+    decision = "accept" if action == "media_accept" else "cancel"
+    resolved[media_id] = {**item, "action": decision, "admin_id": call.from_user.id, "resolved_at": now()}
+    await store.save("pending_media.json", pending)
+    await store.save("resolved_media.json", resolved)
+    result = "✅ Aceptado: el contenido permanece en el grupo."
+    if decision == "cancel":
+        try:
+            await context.bot.delete_message(GROUP_ID, item["message_id"])
+            result = "🗑️ Cancelado: el contenido fue eliminado del grupo."
+        except TelegramError as exc:
+            result = f"⚠️ Se marcó como cancelado, pero Telegram no permitió eliminarlo: {esc(exc)}"
+    await audit(f"media_{decision}", call.from_user.id, item["user_id"], item["kind"])
+    await safe_edit(call, result)
 
 
 async def devblog_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1919,7 +1958,7 @@ COMMANDS: list[tuple[Any, Any]] = [
     ("encuesta", encuesta_cmd), ("encuestas", encuestas_cmd), ("cerrar_encuesta", cerrar_encuesta_cmd),
 ]
 CALLBACKS: list[tuple[Any, str]] = [
-    (link_callback, r"^(validar|expulsar):"), (ticket_callback, r"^(atender|cerrar|reptk):"), (poll_callback, r"^voto:"),
+    (link_callback, r"^(link_accept|link_cancel|validar|expulsar):"), (media_callback, r"^media_(accept|cancel):"), (ticket_callback, r"^(atender|cerrar|reptk):"), (poll_callback, r"^voto:"),
     (verify_callback, r"^verify:"), (public_nav_callback, r"^nav:"), (panel_callback, r"^panel:"), (giveaway_callback, r"^giveaway:"),
     (appeal_callback, r"^appeal:"), (moderation_confirmation_callback, r"^(confirmmod|cancelmod):"),
 ]

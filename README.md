@@ -56,8 +56,8 @@ Los avisos privados (tickets, enlaces, apelaciones…) solo llegan a quien tiene
 ## Funciones
 
 - **Verificación de entrada:** el nuevo miembro queda silenciado hasta pulsar su botón de aceptación de reglas. Solo se dispara cuando alguien *entra*, el botón nunca levanta un silencio temporal impuesto por moderación y el mensaje de bienvenida se elimina al verificar.
-- **Enlaces:** se retiran silenciosamente y pasan a revisión privada del propietario (Validar / Expulsar). No se publica ningún aviso en el grupo. Se detectan también los ocultos tras texto y los dominios sin `https://`. Solo se permiten `facepunch.com` y Steam.
-- **Multimedia:** las fotos, vídeos y archivos de usuarios sin autorización se eliminan sin mensaje público; el propietario recibe el aviso privado con el usuario, tipo y mensaje.
+- **Enlaces:** permanecen visibles temporalmente y pasan a revisión privada con botones **Aceptar** y **Cancelar**. Aceptar mantiene el mensaje; Cancelar lo elimina del grupo. Se detectan también los ocultos tras texto y los dominios sin `https://`. Solo se permiten `facepunch.com` y Steam.
+- **Multimedia:** las fotos, vídeos y archivos de usuarios sin autorización permanecen visibles hasta la decisión. Administración recibe botones **Aceptar** y **Cancelar**; solo Cancelar elimina el contenido. No se publica ningún aviso adicional en el grupo.
 - **Filtro de palabras** (`/filtro on|off|add|remove|list`): acción `escalate` por defecto (1.ª: mute 5 min · 2.ª: mute 20 min · 3.ª: baneo y aviso al equipo). También `warn`, `mute`, `kick`, `ban` por palabra. Contador propio, separado de los `/warn` manuales.
 - **Moderación manual:** `/ban` y `/kick` piden confirmación con botones (caduca en 10 min); `/mute ID MINUTOS`, `/unmute`, `/warn` (3 = baneo). Todo queda en `moderation_logs.json`.
 - **Apelaciones** (`/apelar`), **reportes** (`/reportar ID motivo`) y **tickets** (`/soporte`, `/tickets`) con límite de frecuencia.

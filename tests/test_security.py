@@ -72,13 +72,13 @@ class LinkTests(BotTestCase):
         self.assertIn("t.me/evil", bot.extract_links(message))
         self.assertFalse(bot.link_allowed("t.me/evil"))
 
-    def test_process_link_deletes_and_notifies_moderators(self):
+    def test_process_link_stays_visible_and_notifies_moderators(self):
         message = make_message("https://evil.example", entities=[])
         message.parse_entities = lambda types: {}
         context = make_context()
         run(bot.set_role(2, "moderator", 1))
         assert run(bot.process_link(make_update(message, "supergroup"), context)) is True
-        message.delete.assert_awaited()
+        message.delete.assert_not_awaited()
         recipients = {call.args[0] for call in context.bot.send_message.await_args_list}
         self.assertIn(1, recipients)  # solo el propietario recibe el aviso privado
         self.assertNotIn(bot.GROUP_ID, recipients)
@@ -243,14 +243,31 @@ class JoinAndVerifyTests(BotTestCase):
 
 
 class ModerationTests(BotTestCase):
-    def test_media_is_deleted_for_regular_users_only(self):
+    def test_media_is_pending_for_regular_users_only(self):
         context = make_context()
         photo = make_message(None, photo=("p",))
         run(bot.media_moderation(make_update(photo, "supergroup", user_id=500), context))
-        photo.delete.assert_awaited()
+        photo.delete.assert_not_awaited()
         anonymous = make_message(None, user_id=bot.ANON_ADMIN_ID, photo=("p",))
         run(bot.media_moderation(make_update(anonymous, "supergroup", user_id=bot.ANON_ADMIN_ID), context))
         anonymous.delete.assert_not_awaited()
+
+    def test_media_stays_visible_until_owner_decides(self):
+        context = make_context()
+        photo = make_message(None, photo=("p",))
+        run(bot.media_moderation(make_update(photo, "supergroup", user_id=500), context))
+        photo.delete.assert_not_awaited()
+        pending = run(bot.store.load("pending_media.json"))
+        self.assertEqual(len(pending), 1)
+        self.assertIn(1, {call.args[0] for call in context.bot.send_message.await_args_list})
+
+    def test_media_cancel_deletes_group_message(self):
+        run(bot.store.save("pending_media.json", {"M1": {"media_id": "M1", "user_id": 500, "kind": "photo", "message_id": 77}}))
+        call = SimpleNamespace(data="media_cancel:M1", from_user=SimpleNamespace(id=1), answer=AsyncMock(), edit_message_text=AsyncMock())
+        context = make_context()
+        run(bot.media_callback(SimpleNamespace(callback_query=call), context))
+        context.bot.delete_message.assert_awaited_once_with(bot.GROUP_ID, 77)
+        self.assertEqual(run(bot.store.load("pending_media.json")), {})
 
     def test_group_admins_are_exempt(self):
         context = make_context(member_status="administrator")
