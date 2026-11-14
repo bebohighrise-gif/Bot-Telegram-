@@ -10,7 +10,7 @@ from aiohttp import web
 
 LOG = logging.getLogger("gamaer.web")
 WEB_ROOT = Path(__file__).resolve().parent / "webapp"
-PORT = int(os.getenv("PORT", "8080"))
+PORT = int(os.getenv("PORT", "61280"))
 HOST = "0.0.0.0"
 
 
