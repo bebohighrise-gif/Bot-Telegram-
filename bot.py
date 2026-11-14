@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import fcntl
 import functools
 import html
 import json
@@ -29,7 +30,7 @@ from dotenv import load_dotenv
 from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonCommands, Update
 from telegram import ChatPermissions
 from telegram.constants import ChatMemberStatus, MessageEntityType, ParseMode, UpdateType
-from telegram.error import BadRequest, NetworkError, TelegramError, TimedOut
+from telegram.error import BadRequest, Conflict, NetworkError, TelegramError, TimedOut
 from telegram.helpers import mention_html
 from telegram.ext import (
     Application, CallbackQueryHandler, ChatMemberHandler, CommandHandler,
@@ -77,6 +78,7 @@ TRANSLATE_ENABLED = _bool_env("TRANSLATE_ENABLED", True)
 MEDIA_MODERATION = _bool_env("MEDIA_MODERATION", True)
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+INSTANCE_LOCK_PATH = DATA_DIR / "bot.lock"
 STATE_TTL = 15 * 60          # segundos que vive un flujo interactivo
 CONFIRM_TTL = 10 * 60        # segundos que vive una confirmación de ban/kick
 ANON_ADMIN_ID = 1087968824   # GroupAnonymousBot: administradores que escriben de forma anónima
@@ -484,6 +486,18 @@ async def notify_staff(context: ContextTypes.DEFAULT_TYPE, permission: str, text
     return sent
 
 
+async def notify_owner(context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs: Any) -> int:
+    """Envía avisos de moderación silenciosa solo al propietario configurado."""
+    sent = 0
+    for user_id in sorted(owner_ids()):
+        try:
+            await context.bot.send_message(user_id, text, **kwargs)
+            sent += 1
+        except TelegramError:
+            LOG.info("El propietario %s aún no inició el bot", user_id)
+    return sent
+
+
 async def mute_user(context: ContextTypes.DEFAULT_TYPE, user_id: int, minutes: int | None) -> None:
     until = datetime.now(timezone.utc) + timedelta(minutes=minutes) if minutes else None
     await context.bot.restrict_chat_member(GROUP_ID, user_id, ChatPermissions.no_permissions(), until_date=until)
@@ -876,14 +890,10 @@ async def process_link(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bo
         pending.pop(next(iter(pending)))
     pending[link_id] = {"link_id": link_id, "url": bad[0][:500], "user_id": user.id, "username": user.username, "name": user.full_name, "chat_id": message.chat_id, "message_id": message.message_id, "timestamp": now()}
     await store.save("pending_links.json", pending)
-    try:
-        await context.bot.send_message(GROUP_ID, f"⚠️ {mention(user)}: tu enlace fue retirado y está en revisión por un administrador.", parse_mode=ParseMode.HTML)
-    except TelegramError:
-        LOG.warning("No se pudo avisar del enlace retirado", exc_info=True)
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Validar", callback_data=f"validar:{link_id}"), InlineKeyboardButton("🚫 Expulsar", callback_data=f"expulsar:{link_id}")]])
     username = f"@{esc(user.username)}" if user.username else "sin usuario"
     info = f"🔎 <b>Enlace pendiente</b> #{link_id}\nURL: <code>{esc(bad[0][:500])}</code>\nAutor: {esc(user.full_name)} {username} (<code>{user.id}</code>)\nFecha: {now()}"
-    await notify_staff(context, "moderate", info, parse_mode=ParseMode.HTML, reply_markup=keyboard)
+    await notify_owner(context, info, parse_mode=ParseMode.HTML, reply_markup=keyboard)
     return True
 
 
@@ -914,7 +924,6 @@ async def link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await store.save("resolved_links.json", resolved)
     try:
         if action == "validar":
-            await context.bot.send_message(GROUP_ID, f"🔗 Enlace validado, enviado originalmente por {mention_html(item['user_id'], item['name'])}:\n{esc(item['url'])}", parse_mode=ParseMode.HTML)
             result = "✅ Validado"
         else:
             await context.bot.ban_chat_member(GROUP_ID, item["user_id"])
@@ -934,15 +943,29 @@ def parse_translation(data: Any) -> tuple[str, str]:
 
 
 _translate_slots = asyncio.Semaphore(3)
+TRANSLATION_ENDPOINTS = (
+    "https://translate.googleapis.com/translate_a/single",
+    "https://translate.google.com/translate_a/single",
+)
 
 
 async def translate_text(text: str) -> tuple[str, str]:
     params = {"client": "gtx", "sl": "auto", "tl": "es", "dt": "t", "q": text[:1000]}
     async with _translate_slots:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8)) as session:
-            async with session.get("https://translate.googleapis.com/translate_a/single", params=params) as response:
-                response.raise_for_status()
-                return parse_translation(await response.json(content_type=None))
+            last_error: Exception | None = None
+            for endpoint in TRANSLATION_ENDPOINTS:
+                try:
+                    async with session.get(endpoint, params=params) as response:
+                        response.raise_for_status()
+                        translated, language = parse_translation(await response.json(content_type=None))
+                        if translated:
+                            return translated, language
+                except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, IndexError, TypeError) as exc:
+                    last_error = exc
+            if last_error:
+                raise last_error
+            return "", ""
 
 
 async def translate_and_reply(message: Any) -> None:
@@ -971,7 +994,8 @@ async def media_moderation(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if settings.get("moderation", True) and message_kind(message) in MEDIA_ATTRS:
         try:
             await message.delete()
-            await context.bot.send_message(GROUP_ID, "⚠️ Las fotos, vídeos y archivos requieren autorización de un administrador.")
+            kind = message_kind(message)
+            await notify_owner(context, f"🖼️ <b>Multimedia retirada</b>\nAutor: {mention(message.from_user)} (<code>{message.from_user.id}</code>)\nTipo: {esc(kind)}\nMensaje: <code>{message.message_id}</code>", parse_mode=ParseMode.HTML)
         except TelegramError:
             LOG.warning("No se pudo moderar multimedia", exc_info=True)
 
@@ -1189,7 +1213,12 @@ async def verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     verified[str(target_id)] = {"chat_id": GROUP_ID, "timestamp": now()}
     await store.save("verified.json", verified)
     await answer(call, "✅ Verificado")
-    await safe_edit(call, "✅ Verificación completada. Ya puedes participar en GAMAER CITY.")
+    welcome_message = getattr(call, "message", None)
+    if welcome_message and getattr(welcome_message, "message_id", None):
+        try:
+            await context.bot.delete_message(GROUP_ID, welcome_message.message_id)
+        except TelegramError:
+            LOG.info("No se pudo eliminar el mensaje de verificación %s", welcome_message.message_id)
 
 
 SECTION_PERMISSIONS = {"announcement": "announce", "setserver": "configure", "setwipe": "configure", "admin": "owner", "mod": "owner", "maintenance": "configure"}
@@ -1312,6 +1341,9 @@ async def cancel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     global _last_error_notice
     error = context.error
+    if isinstance(error, Conflict):
+        LOG.critical("Telegram rechazó el polling: ya existe otra instancia del bot o un webhook activo. Detén la instancia duplicada.")
+        return
     if isinstance(error, BadRequest) and "not modified" in str(error).lower():
         return
     if isinstance(error, (NetworkError, TimedOut)):
@@ -1860,8 +1892,8 @@ async def post_init(application: Application) -> None:
         BotCommand("ban", "🔨 Banear usuario"), BotCommand("kick", "🚪 Expulsar usuario"), BotCommand("mute", "🔇 Silenciar usuario"),
         BotCommand("unmute", "🔊 Quitar silencio"), BotCommand("warn", "⚠️ Advertir usuario"), BotCommand("claimadmin", "🔑 Reclamar acceso inicial"),
     ]
-    # Los comandos de administración solo se muestran a cada miembro del equipo; la autorización se vuelve a comprobar al ejecutar.
-    await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllPrivateChats())
+    # En privado se muestran todos los comandos para que el propietario pueda descubrirlos; cada ejecución vuelve a validar el rol.
+    await application.bot.set_my_commands(admin_commands, scope=BotCommandScopeAllPrivateChats())
     await application.bot.set_my_commands(public_commands, scope=BotCommandScopeAllGroupChats())
     for admin_id in sorted(admins | ({BOT_OWNER_ID} if BOT_OWNER_ID else set())):
         try:
@@ -1916,7 +1948,16 @@ def main() -> None:
     require_env()
     if not valid_token():
         raise SystemExit("TELEGRAM_TOKEN no configurado o inválido")
-    build_app().run_polling(allowed_updates=ALLOWED_UPDATES, drop_pending_updates=True)
+    try:
+        with open(INSTANCE_LOCK_PATH, "w", encoding="utf-8") as lock_file:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise SystemExit(f"Ya hay otra instancia ejecutándose (bloqueo: {INSTANCE_LOCK_PATH}).") from None
+            LOG.info("Iniciando GAMAER CITY en modo polling único")
+            build_app().run_polling(allowed_updates=ALLOWED_UPDATES, drop_pending_updates=True)
+    except Conflict as exc:
+        raise SystemExit("Telegram detectó otra instancia o webhook activo. Detén el proceso duplicado antes de iniciar el bot.") from exc
 
 
 if __name__ == "__main__":

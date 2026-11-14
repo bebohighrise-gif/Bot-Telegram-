@@ -80,7 +80,8 @@ class LinkTests(BotTestCase):
         assert run(bot.process_link(make_update(message, "supergroup"), context)) is True
         message.delete.assert_awaited()
         recipients = {call.args[0] for call in context.bot.send_message.await_args_list}
-        self.assertIn(2, recipients)  # el moderador recibe el aviso
+        self.assertIn(1, recipients)  # solo el propietario recibe el aviso privado
+        self.assertNotIn(bot.GROUP_ID, recipients)
         self.assertEqual(len(run(bot.store.load("pending_links.json"))), 1)
 
 
@@ -224,12 +225,14 @@ class JoinAndVerifyTests(BotTestCase):
 
     def test_gate_restriction_is_released_with_group_default_permissions(self):
         call, update = self._call()
+        call.message = SimpleNamespace(message_id=321)
         context = make_context()
         defaults = SimpleNamespace(can_send_messages=True)
         context.bot.get_chat.return_value = SimpleNamespace(permissions=defaults)
         context.bot.get_chat_member.return_value = SimpleNamespace(status="restricted", until_date=None)
         run(bot.verify_callback(update, context))
         self.assertIs(context.bot.restrict_chat_member.await_args.args[2], defaults)
+        context.bot.delete_message.assert_awaited_once_with(bot.GROUP_ID, 321)
         self.assertEqual(call.answer.await_count, 1)
         self.assertIn("500", run(bot.store.load("verified.json")))
 
