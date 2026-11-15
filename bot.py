@@ -27,7 +27,7 @@ from typing import Any
 import feedparser
 import aiohttp
 from dotenv import load_dotenv
-from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonCommands, Update
+from telegram import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats, BotCommandScopeChat, InlineKeyboardButton, InlineKeyboardMarkup, MenuButtonCommands, Update, WebAppInfo
 from telegram import ChatPermissions
 from telegram.constants import ChatMemberStatus, MessageEntityType, ParseMode, UpdateType
 from telegram.error import BadRequest, Conflict, NetworkError, TelegramError, TimedOut
@@ -72,6 +72,7 @@ LOG = logging.getLogger("rust133")
 TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
 GROUP_ID = _int_env("GROUP_ID")
 GROUP_NAME = os.getenv("GROUP_NAME", "GAMAER CITY").strip() or "GAMAER CITY"
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://facp78.bot-keep.xyz").strip().rstrip("/")
 BOT_OWNER_ID = _int_env("BOT_OWNER_ID")
 SEED_ADMINS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().lstrip("-").isdigit()}
 TRANSLATE_ENABLED = _bool_env("TRANSLATE_ENABLED", True)
@@ -431,6 +432,13 @@ def public_buttons() -> InlineKeyboardMarkup:
     ])
 
 
+def private_public_buttons() -> InlineKeyboardMarkup:
+    """Botones públicos para privado, incluyendo la Mini App nativa de Telegram."""
+    rows = [list(row) for row in public_buttons().inline_keyboard]
+    rows.append([InlineKeyboardButton("📷 Verificación humana", web_app=WebAppInfo(url=WEBAPP_URL))])
+    return InlineKeyboardMarkup(rows)
+
+
 def welcome_buttons(user_id: int) -> InlineKeyboardMarkup:
     """Acciones de la bienvenida y verificación obligatoria del nuevo miembro."""
     return InlineKeyboardMarkup([
@@ -449,6 +457,12 @@ def admin_buttons() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("👮 Admin", callback_data="panel:admin"), InlineKeyboardButton("🛡️ Mod", callback_data="panel:mod")],
         [InlineKeyboardButton("🛠️ Mantenimiento", callback_data="panel:maintenance")],
     ])
+
+
+def private_admin_buttons() -> InlineKeyboardMarkup:
+    rows = [list(row) for row in admin_buttons().inline_keyboard]
+    rows.append([InlineKeyboardButton("📷 Verificación humana", web_app=WebAppInfo(url=WEBAPP_URL))])
+    return InlineKeyboardMarkup(rows)
 
 
 async def flow_prompt(update: Update, text: str, **kwargs: Any) -> None:
@@ -619,13 +633,13 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                   "/panel /anuncio /pendientes /responder /tickets /moderacion /filtro /auto\n"
                   "/ban /kick /mute /unmute /warn /setreglas /setservidor /setenlaces /setwipe\n"
                   "/mantenimiento /fijar /rol /evento /sorteo /encuesta /cerrar_encuesta /testgrupo") if await is_admin(update.effective_user.id) else ""
-    markup = admin_buttons() if await is_admin(update.effective_user.id) else public_buttons()
+    markup = (private_admin_buttons() if update.effective_chat and update.effective_chat.type == "private" else admin_buttons()) if await is_admin(update.effective_user.id) else (private_public_buttons() if update.effective_chat and update.effective_chat.type == "private" else public_buttons())
     await update.effective_message.reply_text(f"🤖 <b>{esc(GROUP_NAME)}</b>\n/reglas — reglas\n/devblog — último devblog\n/servidor — IP del servidor\n/wipe — próximo wipe\n/soporte — abrir ticket\n/cancelar — cancelar flujo" + admin_text, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     extra = " Si eres el propietario del grupo y aún no hay admins, usa /claimadmin." if not admins else ""
-    markup = admin_buttons() if await is_admin(update.effective_user.id) else public_buttons()
+    markup = (private_admin_buttons() if update.effective_chat and update.effective_chat.type == "private" else admin_buttons()) if await is_admin(update.effective_user.id) else (private_public_buttons() if update.effective_chat and update.effective_chat.type == "private" else public_buttons())
     await update.effective_message.reply_text("✅ <b>GAMAER CITY</b>\nBot conectado. Pulsa una acción debajo de este mensaje o usa /help." + extra, parse_mode=ParseMode.HTML, reply_markup=markup)
 
 
