@@ -229,7 +229,7 @@ class JoinAndVerifyTests(BotTestCase):
         self.assertEqual(call.answer.await_count, 1)
         self.assertNotIn("500", run(bot.store.load("verified.json")))
 
-    def test_gate_restriction_is_released_with_group_default_permissions(self):
+    def test_gate_restriction_is_not_released_before_liveness(self):
         call, update = self._call()
         call.message = SimpleNamespace(message_id=321)
         context = make_context()
@@ -237,13 +237,13 @@ class JoinAndVerifyTests(BotTestCase):
         context.bot.get_chat.return_value = SimpleNamespace(permissions=defaults)
         context.bot.get_chat_member.return_value = SimpleNamespace(status="restricted", until_date=None)
         run(bot.verify_callback(update, context))
-        self.assertIs(context.bot.restrict_chat_member.await_args.args[2], defaults)
+        context.bot.restrict_chat_member.assert_not_awaited()
         context.bot.delete_message.assert_not_awaited()
         call.edit_message_text.assert_awaited_once()
-        self.assertIn("Bienvenido/a a GAMER CITY", call.edit_message_text.await_args.args[0])
-        self.assertIsNone(call.edit_message_text.await_args.kwargs["reply_markup"])
+        self.assertIn("Prueba pendiente", call.edit_message_text.await_args.args[0])
+        self.assertIsNotNone(call.edit_message_text.await_args.kwargs["reply_markup"])
         self.assertEqual(call.answer.await_count, 1)
-        self.assertIn("500", run(bot.store.load("verified.json")))
+        self.assertNotIn("500", run(bot.store.load("verified.json")))
 
     def test_unverified_user_cannot_use_group_commands(self):
         message = make_message("/help", user_id=500)

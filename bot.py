@@ -114,7 +114,7 @@ class JsonStore:
             "tickets_cerrados.json": {}, "welcome.json": {"enabled": True, "text": "👋 Bienvenido {nombre} a {grupo}!", "file_id": None},
             "wipe_config.json": {"manual": None, "reminders": []}, "encuestas.json": {},
             "server.json": {"name": "GAMAER CITY", "ip": ""},
-            "roles.json": {}, "verified.json": {}, "moderation_logs.json": [],
+            "roles.json": {}, "verified.json": {}, "verification_challenges.json": {}, "moderation_logs.json": [],
             "appeals.json": {}, "reports.json": {}, "events.json": {}, "giveaways.json": {},
             "moderation_confirmations.json": {},
             "official_links.json": {"discord": "", "web": "", "channel": "", "donaciones": ""},
@@ -433,9 +433,9 @@ def public_buttons() -> InlineKeyboardMarkup:
 
 
 def private_public_buttons() -> InlineKeyboardMarkup:
-    """Botones públicos para privado, incluyendo la Mini App nativa de Telegram."""
+    """Botones públicos para privado; la verificación crea primero un desafío."""
     rows = [list(row) for row in public_buttons().inline_keyboard]
-    rows.append([InlineKeyboardButton("📷 Verificación humana", web_app=WebAppInfo(url=WEBAPP_URL))])
+    rows.append([InlineKeyboardButton("📷 Verificación humana", callback_data="verification:start")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -461,8 +461,30 @@ def admin_buttons() -> InlineKeyboardMarkup:
 
 def private_admin_buttons() -> InlineKeyboardMarkup:
     rows = [list(row) for row in admin_buttons().inline_keyboard]
-    rows.append([InlineKeyboardButton("📷 Verificación humana", web_app=WebAppInfo(url=WEBAPP_URL))])
+    rows.append([InlineKeyboardButton("📷 Verificación humana", callback_data="verification:start")])
     return InlineKeyboardMarkup(rows)
+
+
+async def issue_verification_challenge(user_id: int, welcome_message_id: int | None = None) -> str:
+    """Crea un token de un solo uso; la Mini App nunca puede aprobar sin este token."""
+    challenges = await store.load("verification_challenges.json")
+    token = secrets.token_urlsafe(18)
+    challenges[token] = {
+        "user_id": user_id, "chat_id": GROUP_ID, "welcome_message_id": welcome_message_id,
+        "created_at": time.time(), "expires_at": time.time() + 10 * 60, "used": False,
+    }
+    await store.save("verification_challenges.json", challenges)
+    return token
+
+
+async def bot_deep_link(context: ContextTypes.DEFAULT_TYPE, token: str) -> str:
+    me = await context.bot.get_me()
+    return f"https://t.me/{me.username}?start=verify_{urllib.parse.quote(token, safe='')}"
+
+
+def webapp_keyboard(token: str) -> InlineKeyboardMarkup:
+    url = f"{WEBAPP_URL}?challenge={urllib.parse.quote(token, safe='')}"
+    return InlineKeyboardMarkup([[InlineKeyboardButton("📷 Abrir prueba de liveness", web_app=WebAppInfo(url=url))]])
 
 
 async def flow_prompt(update: Update, text: str, **kwargs: Any) -> None:
@@ -638,6 +660,19 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if context.args and context.args[0].startswith("verify_"):
+        token = context.args[0][7:]
+        challenges = await store.load("verification_challenges.json")
+        challenge = challenges.get(token)
+        user_id = update.effective_user.id
+        if not challenge or challenge.get("used") or challenge.get("user_id") != user_id or challenge.get("expires_at", 0) < time.time():
+            await update.effective_message.reply_text("❌ Esta sesión de verificación ha caducado. Pulsa de nuevo el botón del grupo.")
+            return
+        await update.effective_message.reply_text(
+            "🛡️ <b>Prueba de liveness</b>\n\nLa cámara te pedirá tres movimientos aleatorios. Una foto o una pantalla quieta no serán aceptadas.",
+            parse_mode=ParseMode.HTML, reply_markup=webapp_keyboard(token),
+        )
+        return
     extra = " Si eres el propietario del grupo y aún no hay admins, usa /claimadmin." if not admins else ""
     markup = (private_admin_buttons() if update.effective_chat and update.effective_chat.type == "private" else admin_buttons()) if await is_admin(update.effective_user.id) else (private_public_buttons() if update.effective_chat and update.effective_chat.type == "private" else public_buttons())
     await update.effective_message.reply_text("✅ <b>GAMAER CITY</b>\nBot conectado. Pulsa una acción debajo de este mensaje o usa /help." + extra, parse_mode=ParseMode.HTML, reply_markup=markup)
@@ -1301,6 +1336,23 @@ async def ticket_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         LOG.info("No se pudo avisar del cierre al usuario %s", ticket["user_id"])
 
 
+async def verification_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    call = update.callback_query
+    if getattr(call.from_user, "is_bot", False):
+        await answer(call, "Las cuentas automatizadas no pueden completar esta verificación.", True)
+        return
+    token = await issue_verification_challenge(call.from_user.id)
+    await answer(call, "Desafío creado. Abre la prueba en el chat privado del bot.")
+    try:
+        await context.bot.send_message(
+            call.from_user.id,
+            "🛡️ <b>Prueba de liveness</b>\n\nCompleta tres movimientos aleatorios con la cámara. No se aceptan fotos ni una pantalla quieta.",
+            parse_mode=ParseMode.HTML, reply_markup=webapp_keyboard(token),
+        )
+    except TelegramError:
+        await safe_edit(call, "Pulsa el botón para abrir el bot y completar la prueba.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔐 Abrir verificación privada", url=await bot_deep_link(context, token))]]))
+
+
 async def verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     call = update.callback_query
     try:
@@ -1322,25 +1374,62 @@ async def verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if member.status in {ChatMemberStatus.LEFT, ChatMemberStatus.BANNED}:
         await answer(call, "Ya no estás en el grupo.", True)
         return
-    if member.status == ChatMemberStatus.RESTRICTED:
-        if getattr(member, "until_date", None):  # restricción temporal = sanción de moderación, no la puerta de verificación
-            await answer(call, "Tienes una restricción temporal activa; este botón no puede levantarla.", True)
+    if member.status == ChatMemberStatus.RESTRICTED and getattr(member, "until_date", None):
+        await answer(call, "Tienes una restricción temporal activa; este botón no puede levantarla.", True)
+        return
+    token = await issue_verification_challenge(target_id, getattr(getattr(call, "message", None), "message_id", None))
+    await answer(call, "Ahora completa la prueba de cámara en el chat privado del bot.")
+    link = await bot_deep_link(context, token)
+    await safe_edit(
+        call,
+        "🛡️ <b>Prueba pendiente</b>\n\nAbre el bot en privado y completa tres movimientos aleatorios. Una foto o una pantalla quieta no desbloquean el grupo.",
+        parse_mode=ParseMode.HTML,
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔐 Abrir verificación privada", url=link)]]),
+    )
+
+
+async def web_app_data_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    message = update.effective_message
+    user = update.effective_user
+    if not message or not user or not message.web_app_data:
+        return
+    try:
+        payload = json.loads(message.web_app_data.data)
+    except (TypeError, ValueError):
+        await message.reply_text("❌ Resultado de verificación inválido.")
+        return
+    token = str(payload.get("challenge", ""))
+    challenges = await store.load("verification_challenges.json")
+    challenge = challenges.get(token)
+    if not challenge or challenge.get("used") or challenge.get("user_id") != user.id or challenge.get("expires_at", 0) < time.time():
+        await message.reply_text("❌ Esta prueba ha caducado o ya fue usada. Iníciala de nuevo desde el grupo.")
+        return
+    age = time.time() - float(challenge.get("created_at", time.time()))
+    if age < 8 or age > 10 * 60 or payload.get("type") != "human_liveness" or payload.get("status") != "passed" or payload.get("rounds") != 3:
+        await message.reply_text("❌ Debes completar los tres movimientos de la prueba; no basta con pulsar un botón.")
+        return
+    challenge["used"] = True
+    challenge["completed_at"] = time.time()
+    await store.save("verification_challenges.json", challenges)
+    target_id = user.id
+    try:
+        member = await context.bot.get_chat_member(GROUP_ID, target_id)
+        if member.status in {ChatMemberStatus.LEFT, ChatMemberStatus.BANNED}:
+            await message.reply_text("❌ Ya no perteneces al grupo.")
             return
-        try:
+        if member.status == ChatMemberStatus.RESTRICTED:
             await context.bot.restrict_chat_member(GROUP_ID, target_id, await default_permissions(context))
-        except TelegramError:
-            LOG.warning("No se pudo liberar al usuario verificado", exc_info=True)
-            await answer(call, "No pude liberarte. Avisa a un administrador.", True)
-            return
-    verified = await store.load("verified.json")
-    verified[str(target_id)] = {"chat_id": GROUP_ID, "timestamp": now()}
-    await store.save("verified.json", verified)
-    await answer(call, "✅ Verificado")
-    welcome_message = getattr(call, "message", None)
-    if welcome_message:
-        verified_user = getattr(member, "user", None) or call.from_user
-        name = esc(getattr(verified_user, "first_name", None) or getattr(verified_user, "full_name", None) or target_id)
-        await safe_edit(call, f"👋 ¡Bienvenido/a a GAMER CITY, {name}! 🦀", parse_mode=ParseMode.HTML, reply_markup=None)
+        verified = await store.load("verified.json")
+        verified[str(target_id)] = {"chat_id": GROUP_ID, "timestamp": now(), "method": "camera_liveness"}
+        await store.save("verified.json", verified)
+        welcome_id = challenge.get("welcome_message_id")
+        if welcome_id:
+            name = esc(getattr(user, "first_name", None) or getattr(user, "full_name", None) or target_id)
+            await context.bot.edit_message_text(GROUP_ID, welcome_id, f"👋 ¡Bienvenido/a a GAMER CITY, {name}! 🦀", parse_mode=ParseMode.HTML)
+        await message.reply_text("✅ Prueba completada. Ya puedes participar en GAMAER CITY.")
+    except TelegramError:
+        LOG.warning("No se pudo finalizar la verificación de %s", target_id, exc_info=True)
+        await message.reply_text("❌ No pude finalizar el acceso. Avisa a un administrador.")
 
 
 SECTION_PERMISSIONS = {"announcement": "announce", "setserver": "configure", "setwipe": "configure", "admin": "owner", "mod": "owner", "maintenance": "configure"}
@@ -2043,7 +2132,7 @@ COMMANDS: list[tuple[Any, Any]] = [
 ]
 CALLBACKS: list[tuple[Any, str]] = [
     (link_callback, r"^(link_accept|link_cancel|validar|expulsar):"), (media_callback, r"^media_(accept|cancel):"), (ticket_callback, r"^(atender|cerrar|reptk):"), (poll_callback, r"^voto:"),
-    (verify_callback, r"^verify:"), (public_nav_callback, r"^nav:"), (panel_callback, r"^panel:"), (giveaway_callback, r"^giveaway:"),
+    (verification_start_callback, r"^verification:start$"), (verify_callback, r"^verify:"), (public_nav_callback, r"^nav:"), (panel_callback, r"^panel:"), (giveaway_callback, r"^giveaway:"),
     (appeal_callback, r"^appeal:"), (moderation_confirmation_callback, r"^(confirmmod|cancelmod):"),
 ]
 
@@ -2061,6 +2150,7 @@ def build_app() -> Application:
     app.add_handler(MessageHandler(filters.COMMAND, guarded(reset_flow_on_command)), group=-1)
     app.add_handler(MessageHandler(in_group & filters.TEXT & ~filters.COMMAND, guarded(interactive_text)))
     app.add_handler(MessageHandler(in_group & ~filters.TEXT & ~filters.COMMAND & ~filters.StatusUpdate.ALL, guarded(media_router)))
+    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, guarded(web_app_data_handler)))
     app.add_handler(MessageHandler(in_private & filters.TEXT & ~filters.COMMAND, guarded(interactive_text)))
     app.add_handler(MessageHandler(in_private & ~filters.TEXT & ~filters.COMMAND, guarded(media_router)))
     app.add_error_handler(error_handler)
