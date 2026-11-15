@@ -209,6 +209,12 @@ class JoinAndVerifyTests(BotTestCase):
         run(bot.new_member(self._change("left", "member"), context))
         context.bot.restrict_chat_member.assert_awaited_once()
         context.bot.send_message.assert_awaited_once()
+        markup = context.bot.send_message.await_args.kwargs["reply_markup"]
+        callbacks = [button.callback_data for row in markup.inline_keyboard for button in row]
+        self.assertIn("nav:rules", callbacks)
+        self.assertIn("nav:server", callbacks)
+        self.assertIn("nav:support", callbacks)
+        self.assertIn("verify:500", callbacks)
 
     def _call(self, user_id=500, target=500):
         call = SimpleNamespace(data=f"verify:{target}", from_user=SimpleNamespace(id=user_id), answer=AsyncMock(), edit_message_text=AsyncMock())
@@ -310,6 +316,14 @@ class ModerationTests(BotTestCase):
         context.bot.restrict_chat_member.assert_awaited_once()
         self.assertEqual(run(bot.store.load("warns.json"))[f"words:{bot.GROUP_ID}:500"], 1)
 
+    def test_filter_add_keeps_comma_separated_phrases(self):
+        context = make_context()
+        context.args = ["add", "come", "mierda,hp"]
+        run(bot.filter_cmd(make_update(make_message("/filtro add come mierda,hp"), user_id=1), context))
+        settings = run(bot.store.load("settings.json"))
+        self.assertEqual(set(settings["bad_words"]), {"come mierda", "hp"})
+        self.assertEqual(bot.word_matches("estúpido come mierda calla pinga", settings["bad_words"]), "come mierda")
+
 
 class CallbackTests(BotTestCase):
     def _poll_call(self, user_id):
@@ -348,6 +362,16 @@ class CallbackTests(BotTestCase):
 
 
 class MiscTests(BotTestCase):
+    def test_ticket_confirmation_deletes_processing_message_and_uses_format(self):
+        context = make_context()
+        with patch.object(bot.asyncio, "sleep", AsyncMock()):
+            run(bot.finish_ticket_confirmation(context, 500, 22, "63928363727"))
+        context.bot.delete_message.assert_awaited_once_with(500, 22)
+        sent = context.bot.send_message.await_args.args[1]
+        self.assertIn("TICKET ENVIADO CORRECTAMENTE", sent)
+        self.assertIn("EQUIPO DE SOPORTE", sent)
+        self.assertIn("63928363727", sent)
+
     def test_parse_translation(self):
         data = [[["Hola mundo", "Hello world", None, None, 1]], None, "en"]
         self.assertEqual(bot.parse_translation(data), ("Hola mundo", "en"))

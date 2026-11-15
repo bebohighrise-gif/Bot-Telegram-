@@ -78,14 +78,14 @@ Los avisos privados (tickets, enlaces, apelaciones…) solo llegan a quien tiene
 - **Verificación de entrada:** el nuevo miembro queda silenciado hasta pulsar su botón de aceptación de reglas. Solo se dispara cuando alguien *entra*, el botón nunca levanta un silencio temporal impuesto por moderación y el mensaje de bienvenida se elimina al verificar.
 - **Enlaces:** permanecen visibles temporalmente y pasan a revisión privada con botones **Aceptar** y **Cancelar**. Aceptar mantiene el mensaje; Cancelar lo elimina del grupo. Se detectan también los ocultos tras texto y los dominios sin `https://`. Solo se permiten `facepunch.com` y Steam.
 - **Multimedia:** las fotos, vídeos y archivos de usuarios sin autorización permanecen visibles hasta la decisión. Administración recibe botones **Aceptar** y **Cancelar**; solo Cancelar elimina el contenido. No se publica ningún aviso adicional en el grupo.
-- **Filtro de palabras** (`/filtro on|off|add|remove|list`): acción `escalate` por defecto (1.ª: mute 5 min · 2.ª: mute 20 min · 3.ª: baneo y aviso al equipo). También `warn`, `mute`, `kick`, `ban` por palabra. Contador propio, separado de los `/warn` manuales.
+- **Filtro de palabras** (`/filtro on|off|add|remove|list`): se pueden añadir hasta cinco palabras o frases completas separadas por comas, por ejemplo `/filtro add come mierda,hp`. La frase se conserva completa; una coma es el único separador. Acción `escalate` por defecto (1.ª: mute 5 min · 2.ª: mute 20 min · 3.ª: baneo y aviso al equipo). Acción opcional con `| mute`, `| warn`, `| kick`, `| ban` o `| escalate`.
 - **Moderación manual:** `/ban` y `/kick` piden confirmación con botones (caduca en 10 min); `/mute ID MINUTOS`, `/unmute`, `/warn` (3 = baneo). Todo queda en `moderation_logs.json`.
-- **Apelaciones** (`/apelar`), **reportes** (`/reportar ID motivo`) y **tickets** (`/soporte`, `/tickets`) con límite de frecuencia.
+- **Apelaciones** (`/apelar`), **reportes** (`/reportar ID motivo`) y **tickets** (`/soporte`, `/tickets`) con límite de frecuencia. Al crear un ticket se muestra `⌛ Procesando solicitud...`, se elimina a los cinco segundos y se entrega una confirmación con el número y formato de respuesta.
 - **Anuncios** (`/anuncio`, texto o multimedia), **eventos** con recordatorio (`/evento crear Título | 2026-11-20T19:00:00 | detalles`), **sorteos** (ganador con `secrets`), **encuestas** con cierre programado.
 - **Servidor y wipe:** `/setservidor`, `/servidor`, `/setwipe DD/MM/YYYY HH:MM` (UTC), `/wipe`, `/wipe recordatorio`.
 - **Respuestas automáticas** (`/auto`), reglas (`/setreglas`), enlaces oficiales (`/setenlaces`), mensaje fijado (`/fijar`), modo mantenimiento, `/devblog`, panel (`/panel`).
 - **Traducción automática** al español de mensajes en otros idiomas (detecta el idioma; no responde a textos en español).
-- Las bienvenidas son automáticas (acompañan a la verificación); los comandos de bienvenida manual ya no existen.
+- Las bienvenidas son automáticas y muestran Reglas, Servidor y Soporte, además de la verificación obligatoria; los comandos de bienvenida manual ya no existen.
 - En el chat privado se registra el menú completo de comandos para todos los usuarios, pero cada comando administrativo vuelve a validar permisos. En el grupo solo se muestran los comandos públicos.
 - El arranque usa un bloqueo local para impedir dos procesos simultáneos y trata un conflicto de Telegram como error fatal de instancia, no como una actualización normal.
 

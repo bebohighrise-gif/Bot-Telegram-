@@ -411,6 +411,14 @@ def public_buttons() -> InlineKeyboardMarkup:
     ])
 
 
+def welcome_buttons(user_id: int) -> InlineKeyboardMarkup:
+    """Acciones de la bienvenida y verificación obligatoria del nuevo miembro."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📜 Reglas", callback_data="nav:rules"), InlineKeyboardButton("🎮 Servidor", callback_data="nav:server"), InlineKeyboardButton("🛡️ Soporte", callback_data="nav:support")],
+        [InlineKeyboardButton("✅ He leído las reglas y me verifico", callback_data=f"verify:{user_id}")],
+    ])
+
+
 def admin_buttons() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📜 Reglas", callback_data="nav:rules"), InlineKeyboardButton("🎮 Servidor", callback_data="nav:server")],
@@ -526,7 +534,7 @@ async def automatic_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 def word_matches(text: str, words: list[str]) -> str | None:
     normalized = text.casefold()
-    for word in words:
+    for word in sorted(words, key=lambda value: len(str(value)), reverse=True):
         candidate = str(word).strip().casefold()
         if candidate and re.search(r"(?<!\w)" + re.escape(candidate) + r"(?!\w)", normalized):
             return candidate
@@ -625,8 +633,12 @@ async def admins_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not await private_admin(update, None if cmd == "/listadmins" else "owner"):
         return
     if cmd == "/listadmins":
-        lines = [f"• <code>{user_id}</code> — {esc(await role_of(user_id))}" for user_id in sorted(admins | owner_ids())]
-        await update.effective_message.reply_text("👮 Equipo:\n" + "\n".join(lines), parse_mode=ParseMode.HTML)
+        labels = {"owner": "OWNER", "admin": "ADMIN", "moderator": "MOD", "support": "SOPORTE", "announcer": "ANUNCIOS"}
+        lines = []
+        for user_id in sorted(admins | owner_ids()):
+            role = await role_of(user_id)
+            lines.append(f"• {labels.get(role, role.upper())} - <code>{user_id}</code>")
+        await update.effective_message.reply_text("🛡️ Equipo:\n" + "\n".join(lines), parse_mode=ParseMode.HTML)
         return
     target = parse_user_id(context.args[0]) if len(context.args) == 1 else None
     if target is None:
@@ -749,19 +761,32 @@ async def filter_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if action in {"on", "off"}:
         settings["word_filter"] = action == "on"
     elif action == "add" and len(values) >= 1:
-        chosen_action = values[-1].lower() if values[-1].lower() in {"warn", "mute", "kick", "ban", "escalate"} else "escalate"
-        word_values = values[:-1] if values[-1].lower() in {"warn", "mute", "kick", "ban", "escalate"} else values
+        raw_values = " ".join(values)
+        chosen_action = "escalate"
+        if "|" in raw_values:
+            raw_values, requested_action = raw_values.rsplit("|", 1)
+            requested_action = requested_action.strip().casefold()
+            if requested_action not in {"warn", "mute", "kick", "ban", "escalate"}:
+                await update.effective_message.reply_text("Acción inválida. Usa warn, mute, kick, ban o escalate."); return
+            chosen_action = requested_action
+        word_values = [part.strip().casefold() for part in raw_values.split(",") if part.strip()]
         if not word_values:
-            await update.effective_message.reply_text("Indica una palabra antes de la acción."); return
-        settings["bad_words"] = sorted(set(settings.get("bad_words", []) + [x.casefold() for x in word_values]))
-        settings.setdefault("word_actions", {}).update({x.casefold(): chosen_action for x in word_values})
+            await update.effective_message.reply_text("Indica una palabra o frase antes de la acción."); return
+        if len(word_values) > 5:
+            await update.effective_message.reply_text("Puedes añadir como máximo 5 palabras o frases por comando, separadas por comas."); return
+        if any(len(value) > 120 for value in word_values):
+            await update.effective_message.reply_text("Cada palabra o frase puede tener como máximo 120 caracteres."); return
+        existing = settings.get("bad_words", [])
+        settings["bad_words"] = sorted(set(existing + word_values), key=lambda value: (-len(value), value))
+        settings.setdefault("word_actions", {}).update({value: chosen_action for value in word_values})
     elif action == "remove" and values:
-        settings["bad_words"] = [x for x in settings.get("bad_words", []) if x.casefold() not in {v.casefold() for v in values}]
-        for value in values: settings.setdefault("word_actions", {}).pop(value.casefold(), None)
+        word_values = [part.strip().casefold() for part in " ".join(values).split(",") if part.strip()]
+        settings["bad_words"] = [x for x in settings.get("bad_words", []) if x.casefold() not in set(word_values)]
+        for value in word_values: settings.setdefault("word_actions", {}).pop(value, None)
     elif action == "list":
         await update.effective_message.reply_text("Palabras filtradas: " + (", ".join(settings.get("bad_words", [])) or "ninguna")); return
     else:
-        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra [escalate|warn|mute|kick|ban], /filtro remove palabra o /filtro list"); return
+        await update.effective_message.reply_text("Usa /filtro on|off, /filtro add palabra 1,palabra 2[,palabra 3] o /filtro remove palabra 1,palabra 2. Acción opcional: | mute, | warn, | kick, | ban o | escalate."); return
     await store.save("settings.json", settings); await update.effective_message.reply_text("✅ Filtro actualizado.")
 
 
@@ -1164,6 +1189,26 @@ async def soporte_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await create_ticket(update, " ".join(context.args), context)
 
 
+async def finish_ticket_confirmation(context: ContextTypes.DEFAULT_TYPE, chat_id: int, processing_id: int, ticket_id: str) -> None:
+    await asyncio.sleep(5)
+    try:
+        await context.bot.delete_message(chat_id, processing_id)
+    except TelegramError:
+        LOG.debug("No se pudo eliminar el mensaje temporal del ticket %s", ticket_id)
+    confirmation = (
+        "📨 <b>TICKET ENVIADO CORRECTAMENTE</b>\n"
+        "El equipo te responderá por este chat.\n\n"
+        "<b>Formato de respuesta:</b>\n\n"
+        "🛡️ <b>EQUIPO DE SOPORTE:</b>\n\n"
+        "💬 Hola, claro, ¿en qué te podemos ayudar?\n\n"
+        f"🎫 <b>NÚMERO DE TICKET:</b>\n<code>{esc(ticket_id)}</code>"
+    )
+    try:
+        await context.bot.send_message(chat_id, confirmation, parse_mode=ParseMode.HTML)
+    except TelegramError:
+        LOG.info("No se pudo enviar la confirmación del ticket %s", ticket_id)
+
+
 async def create_ticket(update: Update, text: str, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     if rate_limited(user.id, "ticket", 60):
@@ -1177,8 +1222,10 @@ async def create_ticket(update: Update, text: str, context: ContextTypes.DEFAULT
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Atender", callback_data=f"atender:{ticket_id}"), InlineKeyboardButton("❌ Cerrar", callback_data=f"cerrar:{ticket_id}")]])
     username = f"@{esc(user.username)}" if user.username else "sin usuario"
     reached = await notify_staff(context, "support", f"🎫 <b>Ticket #{ticket_id}</b>\nUsuario: {esc(user.full_name)} {username} (<code>{user.id}</code>)\n\n{esc(text)}", parse_mode=ParseMode.HTML, reply_markup=keyboard)
-    note = "" if reached else " (Aviso: ningún miembro del equipo pudo recibirlo todavía; quedará registrado.)"
-    await update.effective_message.reply_text(f"✅ Ticket #{ticket_id} creado. El equipo te responderá por este chat.{note}")
+    processing = await update.effective_message.reply_text("⌛ Procesando solicitud...")
+    if not reached:
+        LOG.warning("El ticket %s quedó guardado, pero ningún miembro de soporte recibió el aviso", ticket_id)
+    asyncio.create_task(finish_ticket_confirmation(context, update.effective_chat.id, processing.message_id, ticket_id))
 
 
 async def tickets_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1364,12 +1411,13 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         except TelegramError:
             LOG.warning("No se pudo restringir a nuevo miembro", exc_info=True)
     config = await store.load("welcome.json")
-    greeting = ""
-    if config.get("enabled", True):
-        custom = config.get("text") or "👋 Bienvenido {nombre} a {grupo}!"
-        greeting = custom.replace("{nombre}", esc(member.first_name or member.full_name)).replace("{grupo}", esc(GROUP_NAME)) + "\n\n"
-    text = greeting + "📜 <b>Reglas de GAMAER CITY</b>\n\n" + await store.load("rules.txt") + "\n\nPulsa el botón para confirmar que las has leído y verificarte."
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("✅ He leído las reglas y me verifico", callback_data=f"verify:{member.id}")]])
+    custom = config.get("text") or ""
+    old_default = "👋 Bienvenido {nombre} a {grupo}!"
+    if not custom or custom == old_default:
+        custom = "👋 ¡Bienvenido/a a GAMER CITY, {nombre}! 🦀\n\n📜 Lee las reglas fijadas\n🎮 Únete al servidor y a jugar\n💬 Preséntate con la comunidad\n\n¡Respeta, diviértete y sobrevive! 🔥"
+    greeting = custom.replace("{nombre}", esc(member.first_name or member.full_name)).replace("{grupo}", esc(GROUP_NAME))
+    text = greeting + "\n\n📜 <b>Reglas de GAMAER CITY</b>\n\n" + await store.load("rules.txt") + "\n\nPulsa el botón de verificación cuando hayas leído las reglas."
+    keyboard = welcome_buttons(member.id)
     await context.bot.send_message(GROUP_ID, text, parse_mode=ParseMode.HTML, reply_markup=keyboard)
 
 
