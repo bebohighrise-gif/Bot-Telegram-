@@ -238,9 +238,23 @@ class JoinAndVerifyTests(BotTestCase):
         context.bot.get_chat_member.return_value = SimpleNamespace(status="restricted", until_date=None)
         run(bot.verify_callback(update, context))
         self.assertIs(context.bot.restrict_chat_member.await_args.args[2], defaults)
-        context.bot.delete_message.assert_awaited_once_with(bot.GROUP_ID, 321)
+        context.bot.delete_message.assert_not_awaited()
+        call.edit_message_text.assert_awaited_once()
+        self.assertIn("Bienvenido/a a GAMER CITY", call.edit_message_text.await_args.args[0])
+        self.assertIsNone(call.edit_message_text.await_args.kwargs["reply_markup"])
         self.assertEqual(call.answer.await_count, 1)
         self.assertIn("500", run(bot.store.load("verified.json")))
+
+    def test_unverified_user_cannot_use_group_commands(self):
+        message = make_message("/help", user_id=500)
+        update = SimpleNamespace(message=message, effective_message=message, effective_user=message.from_user, effective_chat=SimpleNamespace(id=bot.GROUP_ID, type="supergroup"))
+        context = make_context()
+        self.assertFalse(run(bot.command_allowed_for_unverified(update, context)))
+        message.delete.assert_awaited_once()
+        run(bot.store.save("verified.json", {"500": {"chat_id": bot.GROUP_ID}}))
+        message.delete.reset_mock()
+        self.assertTrue(run(bot.command_allowed_for_unverified(update, context)))
+        message.delete.assert_not_awaited()
 
     def test_button_of_another_user_is_rejected(self):
         call, update = self._call(user_id=501)

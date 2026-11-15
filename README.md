@@ -75,7 +75,7 @@ Los avisos privados (tickets, enlaces, apelaciones…) solo llegan a quien tiene
 
 ## Funciones
 
-- **Verificación de entrada:** el nuevo miembro queda silenciado hasta pulsar su botón de aceptación de reglas. Solo se dispara cuando alguien *entra*, el botón nunca levanta un silencio temporal impuesto por moderación y el mensaje de bienvenida se elimina al verificar.
+- **Verificación de entrada:** el nuevo miembro queda silenciado y no puede usar comandos del grupo hasta pulsar su botón de aceptación de reglas. Solo se dispara cuando alguien *entra*, el botón nunca levanta un silencio temporal impuesto por moderación y el mensaje se edita al verificar para conservar únicamente `👋 ¡Bienvenido/a a GAMER CITY, nombre! 🦀`.
 - **Enlaces:** permanecen visibles temporalmente y pasan a revisión privada con botones **Aceptar** y **Cancelar**. Aceptar mantiene el mensaje; Cancelar lo elimina del grupo. Se detectan también los ocultos tras texto y los dominios sin `https://`. Solo se permiten `facepunch.com` y Steam.
 - **Multimedia:** las fotos, vídeos y archivos de usuarios sin autorización permanecen visibles hasta la decisión. Administración recibe botones **Aceptar** y **Cancelar**; solo Cancelar elimina el contenido. No se publica ningún aviso adicional en el grupo.
 - **Filtro de palabras** (`/filtro on|off|add|remove|list`): se pueden añadir hasta cinco palabras o frases completas separadas por comas, por ejemplo `/filtro add come mierda,hp`. La frase se conserva completa; una coma es el único separador. Acción `escalate` por defecto (1.ª: mute 5 min · 2.ª: mute 20 min · 3.ª: baneo y aviso al equipo). Acción opcional con `| mute`, `| warn`, `| kick`, `| ban` o `| escalate`.

@@ -349,6 +349,8 @@ def guarded(handler: Any) -> Any:
     @functools.wraps(handler)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         async with STATE_LOCK:
+            if not await command_allowed_for_unverified(update, context):
+                return
             await handler(update, context)
     return wrapper
 
@@ -400,6 +402,24 @@ async def default_permissions(context: ContextTypes.DEFAULT_TYPE) -> ChatPermiss
 
 def group_message(update: Update) -> bool:
     return bool(update.effective_chat and update.effective_chat.id == GROUP_ID)
+
+
+async def command_allowed_for_unverified(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """Los miembros nuevos solo pueden usar el botón de verificación, no comandos del grupo."""
+    message = getattr(update, "message", None)
+    if not message or not group_message(update) or not getattr(message, "text", "").startswith("/"):
+        return True
+    user = getattr(message, "from_user", None)
+    if not user or await is_exempt(context, message):
+        return True
+    verified = await store.load("verified.json")
+    if str(user.id) in verified:
+        return True
+    try:
+        await message.delete()
+    except TelegramError:
+        LOG.debug("No se pudo eliminar comando de usuario no verificado", exc_info=True)
+    return False
 
 
 def public_buttons() -> InlineKeyboardMarkup:
@@ -1300,11 +1320,10 @@ async def verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await store.save("verified.json", verified)
     await answer(call, "✅ Verificado")
     welcome_message = getattr(call, "message", None)
-    if welcome_message and getattr(welcome_message, "message_id", None):
-        try:
-            await context.bot.delete_message(GROUP_ID, welcome_message.message_id)
-        except TelegramError:
-            LOG.info("No se pudo eliminar el mensaje de verificación %s", welcome_message.message_id)
+    if welcome_message:
+        verified_user = getattr(member, "user", None) or call.from_user
+        name = esc(getattr(verified_user, "first_name", None) or getattr(verified_user, "full_name", None) or target_id)
+        await safe_edit(call, f"👋 ¡Bienvenido/a a GAMER CITY, {name}! 🦀", parse_mode=ParseMode.HTML, reply_markup=None)
 
 
 SECTION_PERMISSIONS = {"announcement": "announce", "setserver": "configure", "setwipe": "configure", "admin": "owner", "mod": "owner", "maintenance": "configure"}
