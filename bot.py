@@ -435,7 +435,7 @@ def welcome_buttons(user_id: int) -> InlineKeyboardMarkup:
     """Acciones de la bienvenida y verificación obligatoria del nuevo miembro."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📜 Reglas", callback_data="nav:rules"), InlineKeyboardButton("🎮 Servidor", callback_data="nav:server"), InlineKeyboardButton("🛡️ Soporte", callback_data="nav:support")],
-        [InlineKeyboardButton("✅ He leído las reglas y me verifico", callback_data=f"verify:{user_id}")],
+        [InlineKeyboardButton("✅ Confirmar que soy una persona", callback_data=f"verify:{user_id}")],
     ])
 
 
@@ -1296,6 +1296,9 @@ async def verify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if call.from_user.id != target_id:
         await answer(call, "Este botón no es para tu cuenta.", True)
+        return
+    if getattr(call.from_user, "is_bot", False):
+        await answer(call, "Las cuentas automatizadas no pueden completar esta verificación.", True)
         return
     try:
         member = await context.bot.get_chat_member(GROUP_ID, target_id)

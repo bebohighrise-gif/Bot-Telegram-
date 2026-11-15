@@ -86,6 +86,7 @@ Los avisos privados (tickets, enlaces, apelaciones…) solo llegan a quien tiene
 - **Respuestas automáticas** (`/auto`), reglas (`/setreglas`), enlaces oficiales (`/setenlaces`), mensaje fijado (`/fijar`), modo mantenimiento, `/devblog`, panel (`/panel`).
 - **Traducción automática** al español de mensajes en otros idiomas (detecta el idioma; no responde a textos en español).
 - Las bienvenidas son automáticas y muestran Reglas, Servidor y Soporte, además de la verificación obligatoria; los comandos de bienvenida manual ya no existen.
+- La Mini App de verificación humana solo solicita acceso a la cámara para una comprobación de interacción; no pide DNI, pasaporte, carnet ni fotografías de documentos.
 - En el chat privado se registra el menú completo de comandos para todos los usuarios, pero cada comando administrativo vuelve a validar permisos. En el grupo solo se muestran los comandos públicos.
 - El arranque usa un bloqueo local para impedir dos procesos simultáneos y trata un conflicto de Telegram como error fatal de instancia, no como una actualización normal.
 
