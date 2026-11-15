@@ -186,6 +186,11 @@ class FlowTests(BotTestCase):
         run(bot.interactive_text(make_update(make_message("hola, ya lo miramos", user_id=2), user_id=2), context))
         self.assertIsNone(bot.admin_states.get(2), "el estado no debe quedarse pegado")
         self.assertEqual(context.bot.send_message.await_args.args[0], 700)
+        response = context.bot.send_message.await_args.args[1]
+        self.assertIn("EQUIPO DE SOPORTE", response)
+        self.assertIn("hola, ya lo miramos", response)
+        self.assertIn("NÚMERO DE TICKET", response)
+        self.assertIn("T1", response)
         # un mensaje privado posterior del admin ya NO se reenvía al usuario
         context.bot.send_message.reset_mock()
         run(bot.interactive_text(make_update(make_message("nota personal", user_id=2), user_id=2), context))
@@ -383,8 +388,9 @@ class MiscTests(BotTestCase):
         context.bot.delete_message.assert_awaited_once_with(500, 22)
         sent = context.bot.send_message.await_args.args[1]
         self.assertIn("TICKET ENVIADO CORRECTAMENTE", sent)
-        self.assertIn("EQUIPO DE SOPORTE", sent)
-        self.assertIn("63928363727", sent)
+        self.assertIn("El equipo te responderá por este chat.", sent)
+        self.assertNotIn("EQUIPO DE SOPORTE", sent)
+        self.assertNotIn("63928363727", sent)
 
     def test_parse_translation(self):
         data = [[["Hola mundo", "Hello world", None, None, 1]], None, "en"]

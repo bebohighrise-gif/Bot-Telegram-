@@ -1266,11 +1266,7 @@ async def finish_ticket_confirmation(context: ContextTypes.DEFAULT_TYPE, chat_id
         LOG.debug("No se pudo eliminar el mensaje temporal del ticket %s", ticket_id)
     confirmation = (
         "📨 <b>TICKET ENVIADO CORRECTAMENTE</b>\n"
-        "El equipo te responderá por este chat.\n\n"
-        "<b>Formato de respuesta:</b>\n\n"
-        "🛡️ <b>EQUIPO DE SOPORTE:</b>\n\n"
-        "💬 Hola, claro, ¿en qué te podemos ayudar?\n\n"
-        f"🎫 <b>NÚMERO DE TICKET:</b>\n<code>{esc(ticket_id)}</code>"
+        "El equipo te responderá por este chat."
     )
     try:
         await context.bot.send_message(chat_id, confirmation, parse_mode=ParseMode.HTML)
@@ -2019,7 +2015,12 @@ async def handle_private_flow(update: Update, context: ContextTypes.DEFAULT_TYPE
             await message.reply_text("ℹ️ Ese ticket ya no está asignado a ti.")
             return
         try:
-            await context.bot.send_message(ticket["user_id"], f"🛠️ <b>Respuesta del equipo (ticket #{state['ticket_id']})</b>\n\n{esc(text)}", parse_mode=ParseMode.HTML)
+            response = (
+                "🛡️ <b>EQUIPO DE SOPORTE:</b>\n\n"
+                f"💬 {esc(text)}\n\n"
+                f"🎫 <b>NÚMERO DE TICKET:</b>\n<code>{esc(state['ticket_id'])}</code>"
+            )
+            await context.bot.send_message(ticket["user_id"], response, parse_mode=ParseMode.HTML)
         except TelegramError:
             await message.reply_text("❌ No pude entregar la respuesta: el usuario no ha iniciado el bot o lo bloqueó.")
             return
